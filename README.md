@@ -1,4 +1,4 @@
-# ⛪ Sistema de Gestão Financeira - ADBRÁS Jaboticabal
+# ⛪ Sistema de Gestão Financeira
 
 
 ## 🚀 Funcionalidades Principais
