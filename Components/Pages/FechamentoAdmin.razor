@@ -1,0 +1,326 @@
+@page "/admin/fechamento"
+@attribute [Authorize(Roles = "Admin")]
+@using SistemaIgreja.Data
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext Db
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Auditoria Mensal</PageTitle>
+
+<div class="container mt-4 pb-5" style="max-width: 1000px;">
+    <div class="d-flex align-items-center mb-4">
+        <div class="bg-primary text-white rounded-3 p-2 me-3">
+            <i class="bi bi-shield-check fs-4"></i>
+        </div>
+        <h2 class="mb-0 fw-light">Auditoria <span class="fw-bold">Mensal</span></h2>
+    </div>
+
+    @* --- FILTROS --- *@
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label small fw-bold text-muted">Congregação</label>
+                    <select class="form-select border-0 bg-light rounded-3" @bind="idUnidadeSelecionada">
+                        <option value="0">Selecionar unidade...</option>
+                        @foreach (var c in listaCongregacoes)
+                        {
+                            <option value="@c.Id">@c.Nome</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-muted">Mês</label>
+                    <select class="form-select border-0 bg-light rounded-3" @bind="mesSelecionado">
+                        @for (int i = 1; i <= 12; i++)
+                        {
+                            <option value="@i">@System.Globalization.DateTimeFormatInfo.CurrentInfo.GetMonthName(i)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">Ano</label>
+                    <input type="number" class="form-control border-0 bg-light rounded-3" @bind="anoSelecionado" />
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-dark w-100 rounded-3 shadow-sm py-2" @onclick="CarregarMovimento">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (carregando)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary opacity-25"></div></div>
+    }
+    else if (movimentosAgrupados != null && movimentosAgrupados.Any())
+    {
+        @* --- RESUMO GERAL --- *@
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="p-3 bg-white rounded-4 shadow-sm border-start border-success border-4">
+                    <div class="small text-muted mb-1">Entradas</div>
+                    <div class="h4 mb-0 fw-bold text-success">R$ @totalEntradasGeral.ToString("N2")</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 bg-white rounded-4 shadow-sm border-start border-danger border-4">
+                    <div class="small text-muted mb-1">Saídas</div>
+                    <div class="h4 mb-0 fw-bold text-danger">R$ @totalSaidasGeral.ToString("N2")</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 bg-white rounded-4 shadow-sm border-start border-primary border-4">
+                    <div class="small text-muted mb-1">Saldo Líquido</div>
+                    <div class="h4 mb-0 fw-bold text-primary">R$ @saldoGeral.ToString("N2")</div>
+                </div>
+            </div>
+        </div>
+
+        @foreach (var grupo in movimentosAgrupados)
+        {
+            var dataChave = grupo.Key.ToString("yyyyMMdd");
+            var estaAberto = diasExpandidos.Contains(dataChave);
+            var diaRevisado = diasRevisados.Contains(dataChave);
+
+            <div class="mb-3">
+                <div class="d-flex align-items-center p-3 bg-white rounded-4 shadow-sm @(diaRevisado ? "opacity-75" : "")">
+                    <div class="cursor-pointer d-flex align-items-center flex-grow-1" @onclick="() => AlternarDia(dataChave)">
+                        <i class="bi @(estaAberto ? "bi-dash-circle" : "bi-plus-circle") fs-5 me-3 text-muted"></i>
+                        <span class="fw-bold @(diaRevisado ? "text-success text-decoration-line-through" : "")">
+                            @grupo.Key.ToLongDateString()
+                        </span>
+                    </div>
+                    
+                    <div class="d-flex align-items-center">
+                        <span class="small text-muted me-2 d-none d-md-inline">@(diaRevisado ? "Concluído" : "Pendente")</span>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" 
+                                   checked="@diaRevisado" @onchange="(e) => MarcarRevisado(dataChave, (bool)(e.Value ?? false))">
+                        </div>
+                    </div>
+                </div>
+
+                @if (estaAberto)
+                {
+                    <div class="bg-white mx-3 p-3 rounded-bottom-4 shadow-sm animate__animated animate__fadeIn">
+                        <table class="table table-borderless align-middle mb-0">
+                            <thead class="text-muted small text-uppercase border-bottom">
+                                <tr>
+                                    <th>Tipo / Categoria</th>
+                                    <th>Descrição</th>
+                                    <th class="text-end">Valor</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in grupo)
+                                {
+                                    <tr class="border-bottom-faint">
+                                        <td>
+                                            <div class="badge @(item.Tipo == "Entrada" ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger") border-0 mb-1">
+                                                @item.Tipo
+                                            </div>
+                                            <div class="fw-bold">@item.Categoria</div>
+                                        </td>
+                                        <td class="small text-muted">@item.Descricao</td>
+                                        <td class="text-end fw-bold">R$ @item.Valor.ToString("N2")</td>
+                                        <td class="text-end">
+                                            @if (item.Status == "Solicitado Ajuste")
+                                            {
+                                                <button class="btn btn-sm btn-soft-warning rounded-pill px-3 fw-bold" @onclick="() => AbrirModalAcaoAjuste(item)">
+                                                    Ajustar
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        }
+
+        <div class="mt-5 text-center">
+            @if (!PodeFecharTudo)
+            {
+                <p class="text-muted small animate__animated animate__fadeIn">
+                    <i class="bi bi-info-circle me-1"></i> 
+                    Para habilitar o fechamento, resolva todos os ajustes e <strong>marque cada dia como revisado</strong>.
+                </p>
+            }
+            <button class="btn btn-primary btn-lg px-5 rounded-pill shadow-lg fw-bold" 
+                    disabled="@(!PodeFecharTudo)" @onclick="FinalizarFechamento">
+                <i class="bi bi-check2-all me-2"></i>Finalizar Auditoria
+            </button>
+        </div>
+    }
+</div>
+
+@* --- MODAL DE AJUSTE ATUALIZADO (COM TIPO) --- *@
+@if (exibirModalAjuste)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.2); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="fw-bold">Ajuste de Registro</h5>
+                    <button type="button" class="btn-close" @onclick="() => exibirModalAjuste = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="p-3 bg-light rounded-3 mb-3 border-start border-warning border-4">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="badge @(itemEmAjuste?.Tipo == "Entrada" ? "bg-success" : "bg-danger")">@itemEmAjuste?.Tipo</span>
+                            <span class="small text-muted">Valor Original: R$ @itemEmAjuste?.Valor.ToString("N2")</span>
+                        </div>
+                        <div class="fw-bold text-dark">@itemEmAjuste?.Categoria</div>
+                        <div class="small mt-2 italic text-muted">Justificativa: "@itemEmAjuste?.Descricao"</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Nova Categoria</label>
+                        <select class="form-select bg-light border-0 rounded-3" @bind="novaCategoriaAjuste">
+                            @if (itemEmAjuste?.Tipo == "Entrada") {
+                                <option value="Dízimo">Dízimo</option><option value="Oferta">Oferta</option>
+                                <option value="Cantina">Cantina</option><option value="Outras Entradas">Outras Entradas</option>
+                            } else {
+                                <option value="Conta de Luz">Conta de Luz</option><option value="Conta de Água">Conta de Água</option>
+                                <option value="Aluguel">Aluguel</option><option value="Manutenção">Manutenção</option>
+                                <option value="Outras Saídas">Outras Saídas</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label small fw-bold">Novo Valor (R$)</label>
+                        <input type="number" step="0.01" class="form-control bg-light border-0 rounded-3" @bind="novoValorAjuste" />
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button class="btn btn-link text-muted text-decoration-none small" @onclick="RecusarAjuste">Manter Original</button>
+                    <button class="btn btn-dark px-4 rounded-pill fw-bold" @onclick="AprovarAjuste">Confirmar Ajuste</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .rounded-4 { border-radius: 1rem !important; }
+    .border-bottom-faint { border-bottom: 1px solid #f8f9fa; }
+    .btn-soft-warning { background-color: #fff3cd; color: #856404; border: none; }
+    .btn-soft-warning:hover { background-color: #ffeeba; }
+    .cursor-pointer { cursor: pointer; }
+    .bg-success-subtle { background-color: #d1e7dd; }
+    .bg-danger-subtle { background-color: #f8d7da; }
+    .italic { font-style: italic; }
+</style>
+
+@code {
+    private List<Congregacao> listaCongregacoes = new();
+    private List<IGrouping<DateTime, Lancamento>> movimentosAgrupados = new();
+    private List<string> diasExpandidos = new();
+    private HashSet<string> diasRevisados = new();
+    private int idUnidadeSelecionada;
+    private int mesSelecionado = DateTime.Now.Month;
+    private int anoSelecionado = DateTime.Now.Year;
+    private bool carregando = false;
+
+    private decimal totalEntradasGeral = 0;
+    private decimal totalSaidasGeral = 0;
+    private decimal saldoGeral = 0;
+
+    private bool exibirModalAjuste = false;
+    private Lancamento? itemEmAjuste;
+    private decimal novoValorAjuste;
+    private string novaCategoriaAjuste = "";
+
+    private bool PodeFecharTudo => movimentosAgrupados.Any() && 
+                                  diasRevisados.Count == movimentosAgrupados.Count && 
+                                  !movimentosAgrupados.SelectMany(g => g).Any(i => i.Status == "Solicitado Ajuste");
+
+    protected override async Task OnInitializedAsync()
+    {
+        listaCongregacoes = await Db.Congregacoes.ToListAsync();
+    }
+
+    private async Task CarregarMovimento()
+    {
+        if (idUnidadeSelecionada == 0) return;
+        carregando = true;
+        diasRevisados.Clear();
+        
+        var lista = await Db.Lancamentos
+            .Where(x => x.CongregacaoId == idUnidadeSelecionada && 
+                        x.Status != "Fechado" && 
+                        x.DataEvento.Month == mesSelecionado &&
+                        x.DataEvento.Year == anoSelecionado)
+            .OrderBy(x => x.DataEvento).ToListAsync();
+
+        totalEntradasGeral = lista.Where(x => x.Tipo == "Entrada").Sum(x => x.Valor);
+        totalSaidasGeral = lista.Where(x => x.Tipo == "Saida").Sum(x => x.Valor);
+        saldoGeral = totalEntradasGeral - totalSaidasGeral;
+
+        movimentosAgrupados = lista.GroupBy(x => x.DataEvento.Date).ToList();
+        carregando = false;
+    }
+
+    private string ObterNomeMes(int mes) => System.Globalization.DateTimeFormatInfo.CurrentInfo.GetMonthName(mes);
+    private void AlternarDia(string data) { if (diasExpandidos.Contains(data)) diasExpandidos.Remove(data); else diasExpandidos.Add(data); }
+    private void MarcarRevisado(string data, bool revisado) { if (revisado) diasRevisados.Add(data); else diasRevisados.Remove(data); }
+
+    private void AbrirModalAcaoAjuste(Lancamento item)
+    {
+        itemEmAjuste = item;
+        novoValorAjuste = item.Valor;
+        novaCategoriaAjuste = item.Categoria;
+        exibirModalAjuste = true;
+    }
+
+    private async Task AprovarAjuste()
+    {
+        if (itemEmAjuste != null)
+        {
+            itemEmAjuste.Valor = novoValorAjuste;
+            itemEmAjuste.Categoria = novaCategoriaAjuste;
+            itemEmAjuste.Status = "Aberto"; 
+            itemEmAjuste.Descricao += $" [AJUSTADO EM {DateTime.Now:dd/MM}]";
+            Db.Lancamentos.Update(itemEmAjuste);
+            await Db.SaveChangesAsync();
+            exibirModalAjuste = false;
+            await CarregarMovimento();
+        }
+    }
+
+    private async Task RecusarAjuste()
+    {
+        if (itemEmAjuste != null)
+        {
+            itemEmAjuste.Status = "Aberto"; 
+            Db.Lancamentos.Update(itemEmAjuste);
+            await Db.SaveChangesAsync();
+            exibirModalAjuste = false;
+            await CarregarMovimento();
+        }
+    }
+
+    private async Task FinalizarFechamento()
+    {
+        foreach (var grupo in movimentosAgrupados)
+        {
+            foreach (var item in grupo)
+            {
+                item.Status = "Fechado";
+                Db.Lancamentos.Update(item);
+            }
+        }
+        await Db.SaveChangesAsync();
+        movimentosAgrupados.Clear();
+        diasRevisados.Clear();
+        await JS.InvokeVoidAsync("alert", "Auditoria Finalizada com Sucesso.");
+    }
+}

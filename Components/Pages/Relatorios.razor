@@ -1,0 +1,222 @@
+@page "/relatorios"
+@attribute [Authorize(Roles = "Admin")]
+@using SistemaIgreja.Data
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext Db
+@rendermode InteractiveServer
+
+<PageTitle>Relatórios Gerenciais</PageTitle>
+
+<div class="container mt-4 pb-5" style="max-width: 1100px;">
+    @*CABEÇALHO*@
+    <div class="d-flex align-items-center mb-4">
+        <div class="bg-primary text-white rounded-3 p-2 me-3 shadow-sm">
+            <i class="bi bi-graph-up-arrow fs-4"></i>
+        </div>
+        <h2 class="mb-0 fw-light">Painel <span class="fw-bold">Financeiro</span></h2>
+    </div>
+
+    @*FILTROS*@
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label small fw-bold text-muted">Congregação</label>
+                    <select class="form-select border-0 bg-light rounded-3" @bind="idUnidadeSelecionada">
+                        <option value="0">Todas as Congregações (Visão Geral)</option>
+                        @foreach (var c in listaCongregacoes)
+                        {
+                            <option value="@c.Id">@c.Nome</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-muted">Mês de Referência</label>
+                    <select class="form-select border-0 bg-light rounded-3" @bind="mesSelecionado">
+                        @for (int i = 1; i <= 12; i++)
+                        {
+                            <option value="@i">@System.Globalization.DateTimeFormatInfo.CurrentInfo.GetMonthName(i)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">Ano</label>
+                    <input type="number" class="form-control border-0 bg-light rounded-3" @bind="anoSelecionado" />
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-dark w-100 rounded-3 shadow-sm py-2" @onclick="GerarRelatorio">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (carregando)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary opacity-25"></div></div>
+    }
+    else if (relatorioGerado)
+    {
+        <div class="small text-muted mb-3 ms-1">
+            <i class="bi bi-info-circle me-1"></i> 
+            Exibindo dados de <strong>@ObterNomeMes(mesSelecionado) / @anoSelecionado</strong>
+            @(idUnidadeSelecionada == 0 ? " • Consolidado de todas as unidades" : "")
+        </div>
+
+        @*CARDS DE RESUMO (KPIs)*@
+        <div class="row g-4 mb-4">
+            <div class="col-md-4">
+                <div class="p-4 bg-white rounded-4 shadow-sm border-bottom border-success border-4 h-100 transition-hover">
+                    <div class="small text-uppercase fw-bold text-muted mb-2 ls-1">Entradas</div>
+                    <div class="h3 mb-0 fw-bold text-success">R$ @totalEntradas.ToString("N2")</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-4 bg-white rounded-4 shadow-sm border-bottom border-danger border-4 h-100 transition-hover">
+                    <div class="small text-uppercase fw-bold text-muted mb-2 ls-1">Saídas</div>
+                    <div class="h3 mb-0 fw-bold text-danger">R$ @totalSaidas.ToString("N2")</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-4 bg-white rounded-4 shadow-sm border-bottom @(saldoLiquido >= 0 ? "border-primary" : "border-warning") border-4 h-100 transition-hover">
+                    <div class="small text-uppercase fw-bold text-muted mb-2 ls-1">Saldo Líquido</div>
+                    <div class="h3 mb-0 fw-bold @(saldoLiquido >= 0 ? "text-primary" : "text-warning")">R$ @saldoLiquido.ToString("N2")</div>
+                </div>
+            </div>
+        </div>
+
+        @*GRÁFICOS*@
+        <div class="row g-4">
+            @* Saídas *@
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center mb-4">
+                            <div class="bg-danger-subtle text-danger rounded-circle p-2 me-2">
+                                <i class="bi bi-arrow-down-right"></i>
+                            </div>
+                            <h5 class="mb-0 fw-bold">Distribuição de Saídas</h5>
+                        </div>
+
+                        @if (!saidasPorCategoria.Any())
+                        {
+                            <p class="text-muted small italic">Nenhuma saída registrada.</p>
+                        }
+                        else
+                        {
+                            @foreach (var cat in saidasPorCategoria)
+                            {
+                                var percentual = totalSaidas > 0 ? (cat.Valor / totalSaidas) * 100 : 0;
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between small mb-1">
+                                        <span class="fw-bold text-dark">@cat.Categoria</span>
+                                        <span class="text-muted">R$ @cat.Valor.ToString("N2") (@percentual.ToString("0.0")%)</span>
+                                    </div>
+                                    <div class="progress rounded-pill" style="height: 6px;">
+                                        <div class="progress-bar bg-danger" role="progressbar" style="width: @percentual.ToString(System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @* Entradas *@
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center mb-4">
+                            <div class="bg-success-subtle text-success rounded-circle p-2 me-2">
+                                <i class="bi bi-arrow-up-right"></i>
+                            </div>
+                            <h5 class="mb-0 fw-bold">Origem de Entradas</h5>
+                        </div>
+
+                        @if (!entradasPorCategoria.Any())
+                        {
+                            <p class="text-muted small italic">Nenhuma entrada registrada.</p>
+                        }
+                        else
+                        {
+                            @foreach (var cat in entradasPorCategoria)
+                            {
+                                var percentual = totalEntradas > 0 ? (cat.Valor / totalEntradas) * 100 : 0;
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between small mb-1">
+                                        <span class="fw-bold text-dark">@cat.Categoria</span>
+                                        <span class="text-muted">R$ @cat.Valor.ToString("N2") (@percentual.ToString("0.0")%)</span>
+                                    </div>
+                                    <div class="progress rounded-pill" style="height: 6px;">
+                                        <div class="progress-bar bg-success" role="progressbar" style="width: @percentual.ToString(System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .rounded-4 { border-radius: 1rem !important; }
+    .ls-1 { letter-spacing: 0.5px; }
+    .italic { font-style: italic; }
+    .transition-hover { transition: transform 0.2s ease, shadow 0.2s ease; cursor: default; }
+    .transition-hover:hover { transform: translateY(-3px); }
+    .bg-success-subtle { background-color: #d1e7dd; }
+    .bg-danger-subtle { background-color: #f8d7da; }
+</style>
+
+@code {
+    private List<Congregacao> listaCongregacoes = new();
+    private int idUnidadeSelecionada = 0;
+    private int mesSelecionado = DateTime.Now.Month;
+    private int anoSelecionado = DateTime.Now.Year;
+    private bool carregando = false;
+    private bool relatorioGerado = false;
+    private decimal totalEntradas = 0;
+    private decimal totalSaidas = 0;
+    private decimal saldoLiquido => totalEntradas - totalSaidas;
+    private List<ResumoCategoria> entradasPorCategoria = new();
+    private List<ResumoCategoria> saidasPorCategoria = new();
+
+    public class ResumoCategoria {
+        public string Categoria { get; set; } = "";
+        public decimal Valor { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync() {
+        listaCongregacoes = await Db.Congregacoes.ToListAsync();
+        await GerarRelatorio();
+    }
+
+    private string ObterNomeMes(int mes) {
+        var nome = System.Globalization.DateTimeFormatInfo.CurrentInfo.GetMonthName(mes);
+        return char.ToUpper(nome[0]) + nome.Substring(1);
+    }
+
+    private async Task GerarRelatorio() {
+        carregando = true;
+        relatorioGerado = false;
+        var queryMes = Db.Lancamentos
+            .Where(x => x.DataEvento.Month == mesSelecionado && 
+                        x.DataEvento.Year == anoSelecionado &&
+                        x.Status != "Agendado");
+        if (idUnidadeSelecionada > 0) queryMes = queryMes.Where(x => x.CongregacaoId == idUnidadeSelecionada);
+        var lancamentosMes = await queryMes.ToListAsync();
+        totalEntradas = lancamentosMes.Where(x => x.Tipo == "Entrada").Sum(x => x.Valor);
+        totalSaidas = lancamentosMes.Where(x => x.Tipo == "Saida").Sum(x => x.Valor);
+        entradasPorCategoria = lancamentosMes.Where(x => x.Tipo == "Entrada").GroupBy(x => x.Categoria)
+            .Select(g => new ResumoCategoria { Categoria = g.Key, Valor = g.Sum(x => x.Valor) })
+            .OrderByDescending(x => x.Valor).ToList();
+        saidasPorCategoria = lancamentosMes.Where(x => x.Tipo == "Saida").GroupBy(x => x.Categoria)
+            .Select(g => new ResumoCategoria { Categoria = g.Key, Valor = g.Sum(x => x.Valor) })
+            .OrderByDescending(x => x.Valor).ToList();
+        carregando = false;
+        relatorioGerado = true;
+    }
+}

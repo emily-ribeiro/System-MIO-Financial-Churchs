@@ -1,0 +1,154 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager NavManager
+@inject AuthenticationStateProvider AuthProvider
+
+<style>
+    
+    .nav-scrollable {
+        overflow-x: hidden !important;
+    }
+    
+    
+    .nav-link-text {
+        white-space: nowrap !important;
+        font-size: 0.85rem; 
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* ÍCONES MENORES E ALINHADOS */
+    .icon-menu {
+        font-size: 1.05rem;
+        width: 24px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        line-height: 1;
+        flex-shrink: 0;
+    }
+</style>
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">ADBrás Jaboticabal</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+
+        <AuthorizeView>
+            <Authorized>
+                @* HOME *@
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link d-flex align-items-center flex-nowrap" href="" Match="NavLinkMatch.All">
+                        <i class="bi bi-house-door-fill icon-menu" aria-hidden="true"></i>
+                        <span class="ms-2 nav-link-text">Home</span>
+                    </NavLink>
+                </div>
+                
+                @* LANÇAMENTOS*@
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link d-flex align-items-center flex-nowrap" href="lancamentos">
+                        <i class="bi bi-cash-coin icon-menu" aria-hidden="true"></i>
+                        <span class="ms-2 nav-link-text">Lançamentos</span>
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* EXCLUSIVO PARA TESOUREIRO *@
+        <AuthorizeView Roles="Tesoureiro">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link d-flex align-items-center flex-nowrap" href="registro-lancamentos">
+                        <i class="bi bi-journal-text icon-menu" aria-hidden="true"></i>
+                        <span class="ms-2 nav-link-text">Registro de Lançamentos</span>
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* EXCLUSIVO PARA ADMIN *@
+        <AuthorizeView Roles="Admin">
+            <Authorized>
+                <hr class="text-white-50 mx-3 my-2" />
+                <div class="nav-item px-3 mt-2 mb-1">
+                    <small class="text-white-50 fw-bold" style="font-size: 0.70rem; letter-spacing: 0.5px;">ADMINISTRAÇÃO</small>
+                </div>
+                
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link d-flex align-items-center flex-nowrap" href="admin/congregacoes">
+                        <i class="bi bi-building-fill icon-menu" aria-hidden="true"></i>
+                        <span class="ms-2 nav-link-text">Congregações</span>
+                    </NavLink>
+                </div>
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link d-flex align-items-center flex-nowrap" href="admin/usuarios">
+                        <i class="bi bi-people-fill icon-menu" aria-hidden="true"></i>
+                        <span class="ms-2 nav-link-text">Usuários</span>
+                    </NavLink>
+                </div>
+
+                <hr class="text-white-50 mx-3 my-2" />
+                <div class="nav-item px-3 mt-2 mb-1">
+                    <small class="text-white-50 fw-bold" style="font-size: 0.70rem; letter-spacing: 0.5px;">FINANCEIRO</small>
+                </div>
+
+                @* FECHAMENTO ADMIN *@
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link d-flex align-items-center flex-nowrap" href="admin/fechamento">
+                        <i class="bi bi-bank2 text-warning icon-menu" aria-hidden="true"></i>
+                        <span class="ms-2 text-warning fw-bold nav-link-text">Fechamento Mensal</span>
+                    </NavLink>
+                </div>
+            
+                @* RELATÓRIOS *@
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link d-flex align-items-center flex-nowrap" href="relatorios">
+                        <i class="bi bi-pie-chart-fill icon-menu" aria-hidden="true"></i>
+                        <span class="ms-2 nav-link-text">Painel Financeiro</span>
+                    </NavLink>
+                </div>
+
+                @* HISTÓRICO *@
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link d-flex align-items-center flex-nowrap" href="admin/historico-fechamento">
+                        <i class="bi bi-archive-fill text-info icon-menu" aria-hidden="true"></i>
+                        <span class="ms-2 text-info fw-bold nav-link-text">Histórico Fechamentos</span>
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* BOTÃO SAIR *@
+        <AuthorizeView>
+            <Authorized>
+                <hr class="text-white-50 mx-3 my-3" />
+                <div class="nav-item px-3 pb-4">
+                    <button class="nav-link btn btn-link text-start w-100 border-0 p-0 d-flex align-items-center flex-nowrap" @onclick="Sair">
+                        <i class="bi bi-box-arrow-right icon-menu" aria-hidden="true"></i>
+                        <span class="ms-2 nav-link-text">Sair</span>
+                    </button>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+    </nav>
+</div>
+
+@code {
+    [Inject]
+    public ProvedorSessao ProvedorSessao { get; set; } = default!;
+
+    private async Task Sair()
+    {
+        await ProvedorSessao.Sair();
+        NavManager.NavigateTo("login", true);
+    }
+}

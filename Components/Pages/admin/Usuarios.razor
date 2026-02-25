@@ -1,0 +1,301 @@
+@page "/admin/usuarios"
+@attribute [Authorize(Roles = "Admin")]
+@using SistemaIgreja.Data
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext Db
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Gestão de Usuários</PageTitle>
+
+<div class="container mt-4 pb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-people-fill me-2 text-primary"></i>Usuários do Sistema</h2>
+        <button class="btn btn-primary shadow-sm fw-bold" @onclick="AbrirModalNovo">
+            <i class="bi bi-person-plus-fill me-2"></i>Novo Usuário
+        </button>
+    </div>
+
+    <div class="card shadow-sm border-0 animate__animated animate__fadeIn">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Nome</th>
+                            <th>E-mail (Login)</th>
+                            <th>Perfil</th>
+                            <th>Unidade Vinculada</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center pe-4" style="width: 150px;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (carregando)
+                        {
+                            <tr><td colspan="6" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>
+                        }
+                        else if (!listaUsuarios.Any())
+                        {
+                            <tr><td colspan="6" class="text-center py-4 text-muted">Nenhum usuário cadastrado.</td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var u in listaUsuarios)
+                            {
+                                <tr class="@(u.Ativo ? "" : "table-secondary opacity-75")">
+                                    <td class="ps-4 fw-bold @(u.Ativo ? "text-dark" : "text-muted text-decoration-line-through")">@u.Nome</td>
+                                    <td>@u.Email</td>
+                                    <td>
+                                        <span class="badge @(u.Perfil == "Admin" ? "bg-danger" : "bg-primary")">@u.Perfil</span>
+                                    </td>
+                                    <td class="small fw-bold text-muted">
+                                        @(u.Perfil == "Admin" ? "Todas (Acesso Geral)" : ObterNomeCongregacao(u.CongregacaoId))
+                                    </td>
+                                    <td class="text-center">
+                                        @if (u.Ativo)
+                                        {
+                                            <span class="badge bg-success shadow-sm"><i class="bi bi-check-circle me-1"></i>Ativo</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary shadow-sm"><i class="bi bi-dash-circle me-1"></i>Bloqueado</span>
+                                        }
+                                    </td>
+                                    <td class="text-center pe-4">
+                                        <button class="btn btn-sm btn-outline-primary me-2 shadow-sm" @onclick="() => AbrirModalEdicao(u)" title="Editar">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger shadow-sm" @onclick="() => Inativar(u)" title="Bloquear Acesso">
+                                            <i class="bi bi-person-x-fill"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+    @*MODALCADASTRO*@
+@if (exibirModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5)" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered shadow-lg">
+            <div class="modal-content border-0">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi @(isEdicao ? "bi-pencil-square" : "bi-person-plus-fill") me-2"></i>
+                        @(isEdicao ? "Editar Usuário" : "Novo Usuário")
+                    </h5>
+                    <button class="btn-close btn-close-white" @onclick="FecharModal"></button>
+                </div>
+                <div class="modal-body bg-light">
+                    @if (!string.IsNullOrEmpty(mensagemErro))
+                    {
+                        <div class="alert alert-danger py-2 small mb-3 animate__animated animate__shakeX">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>@mensagemErro
+                        </div>
+                    }
+
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold">Nome Completo</label>
+                            <input type="text" class="form-control" @bind="usuarioAtual.Nome" placeholder="Ex: João da Silva" />
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold">E-mail (Usado para Login)</label>
+                            <input type="email" class="form-control" @bind="usuarioAtual.Email" placeholder="joao@igreja.com" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Senha @(isEdicao ? "(Em branco p/ manter)" : "")</label>
+                            <input type="password" class="form-control" @bind="novaSenha" placeholder="******" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Perfil de Acesso</label>
+                            <select class="form-select border-primary" @bind="usuarioAtual.Perfil">
+                                <option value="Tesoureiro">Tesoureiro</option>
+                                <option value="Admin">Administrador Geral</option>
+                            </select>
+                        </div>
+
+                        @* SÓ PEDE A CONGREGAÇÃO SE FOR TESOUREIRO *@
+                        @if (usuarioAtual.Perfil == "Tesoureiro")
+                        {
+                            <div class="col-md-12 animate__animated animate__fadeIn">
+                                <label class="form-label fw-bold">Vincular à Congregação</label>
+                                <select class="form-select" @bind="usuarioAtual.CongregacaoId">
+                                    <option value="">Selecione a unidade...</option>
+                                    @foreach (var c in listaCongregacoes)
+                                    {
+                                        <option value="@c.Id">@c.Nome</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+
+                        @if (isEdicao)
+                        {
+                            <div class="col-md-12 mt-3">
+                                <div class="form-check form-switch fs-5">
+                                    <input class="form-check-input" type="checkbox" role="switch" @bind="usuarioAtual.Ativo" id="statusSwitch">
+                                    <label class="form-check-label ms-2 fs-6 fw-bold" for="statusSwitch">Permitir Acesso (Ativo)</label>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer bg-white">
+                    <button class="btn btn-secondary fw-bold" @onclick="FecharModal">Cancelar</button>
+                    <button class="btn btn-primary px-4 fw-bold" @onclick="Salvar">
+                        <i class="bi bi-save me-2"></i>Salvar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Usuario> listaUsuarios = new();
+    private List<Congregacao> listaCongregacoes = new();
+    private bool carregando = true;
+    
+    private bool exibirModal = false;
+    private bool isEdicao = false;
+    private string mensagemErro = "";
+    private string novaSenha = "";
+    
+    private Usuario usuarioAtual = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarDados();
+    }
+
+    private async Task CarregarDados()
+    {
+        carregando = true;
+        // Carrega congregações ativas para o dropdown
+        listaCongregacoes = await Db.Congregacoes.Where(c => c.Ativo).OrderBy(c => c.Nome).ToListAsync();
+        
+        // Carrega todos os usuários para listar na tela
+        listaUsuarios = await Db.Usuarios.OrderByDescending(u => u.Ativo).ThenBy(u => u.Nome).ToListAsync();
+        carregando = false;
+    }
+
+    private string ObterNomeCongregacao(int? id)
+    {
+        if (id == null || id == 0) return "Não Vinculado";
+        var c = listaCongregacoes.FirstOrDefault(x => x.Id == id);
+        return c != null ? c.Nome : "Desconhecida/Inativa";
+    }
+
+    private void AbrirModalNovo()
+    {
+        usuarioAtual = new Usuario { Perfil = "Tesoureiro", Ativo = true };
+        novaSenha = "";
+        isEdicao = false;
+        mensagemErro = "";
+        exibirModal = true;
+    }
+
+    private void AbrirModalEdicao(Usuario u)
+    {
+        usuarioAtual = new Usuario 
+        { 
+            Id = u.Id, 
+            Nome = u.Nome, 
+            Email = u.Email, 
+            Perfil = u.Perfil, 
+            CongregacaoId = u.CongregacaoId, 
+            Ativo = u.Ativo,
+            Senha = u.Senha
+        };
+        novaSenha = ""; 
+        isEdicao = true;
+        mensagemErro = "";
+        exibirModal = true;
+    }
+
+    private void FecharModal() { exibirModal = false; }
+
+    private async Task Salvar()
+    {
+        mensagemErro = "";
+
+        if (string.IsNullOrWhiteSpace(usuarioAtual.Nome)) { mensagemErro = "Nome é obrigatório."; return; }
+        if (string.IsNullOrWhiteSpace(usuarioAtual.Email)) { mensagemErro = "E-mail é obrigatório."; return; }
+        if (!isEdicao && string.IsNullOrWhiteSpace(novaSenha)) { mensagemErro = "A senha é obrigatória para novos usuários."; return; }
+        if (usuarioAtual.Perfil == "Tesoureiro" && (usuarioAtual.CongregacaoId == null || usuarioAtual.CongregacaoId == 0)) 
+        { 
+            mensagemErro = "Tesoureiros precisam ser vinculados a uma congregação."; return; 
+        }
+
+        try
+        {
+            if (usuarioAtual.Perfil == "Admin") usuarioAtual.CongregacaoId = null;
+
+            if (isEdicao)
+            {
+                var usuarioBanco = await Db.Usuarios.FindAsync(usuarioAtual.Id);
+                if (usuarioBanco != null)
+                {
+                    usuarioBanco.Nome = usuarioAtual.Nome;
+                    usuarioBanco.Email = usuarioAtual.Email;
+                    usuarioBanco.Perfil = usuarioAtual.Perfil;
+                    usuarioBanco.CongregacaoId = usuarioAtual.CongregacaoId;
+                    usuarioBanco.Ativo = usuarioAtual.Ativo;
+                    
+                    if (!string.IsNullOrWhiteSpace(novaSenha))
+                    {
+                        usuarioBanco.Senha = novaSenha; 
+                    }
+
+                    Db.Usuarios.Update(usuarioBanco);
+                }
+            }
+            else
+            {
+                usuarioAtual.Senha = novaSenha;
+                Db.Usuarios.Add(usuarioAtual);
+            }
+
+            await Db.SaveChangesAsync();
+            await CarregarDados();
+            exibirModal = false;
+        }
+        catch (Exception ex)
+        {
+            mensagemErro = $"Erro ao salvar: {ex.InnerException?.Message ?? ex.Message}";
+        }
+    }
+
+    private async Task Inativar(Usuario u)
+    {
+        if (u.Email.ToLower() == "admin@admin.com") 
+        {
+            await JS.InvokeVoidAsync("alert", "Ação não permitida! Você não pode bloquear o administrador principal do sistema.");
+            return;
+        }
+
+        bool confirmado = await JS.InvokeAsync<bool>("confirm", $"Deseja bloquear o acesso do usuário '{u.Nome}' ao sistema?");
+        if (confirmado)
+        {
+            var user = await Db.Usuarios.FindAsync(u.Id);
+            if (user != null)
+            {
+                user.Ativo = false;
+                Db.Usuarios.Update(user);
+                await Db.SaveChangesAsync();
+                await CarregarDados();
+            }
+        }
+    }
+}

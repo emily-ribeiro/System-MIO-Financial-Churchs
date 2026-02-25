@@ -1,0 +1,191 @@
+@page "/registro-lancamentos"
+@attribute [Authorize(Roles = "Tesoureiro")]
+@using SistemaIgreja.Data
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AppDbContext Db
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthProvider
+@rendermode InteractiveServer
+
+<PageTitle>Meus Lançamentos Pendentes</PageTitle>
+
+<div class="container mt-4 pb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-card-checklist me-2 text-primary"></i>Lançamentos Pendentes</h2>
+        <span class="badge bg-secondary p-2 shadow-sm">Unidade: @nomeMinhaCongregacao</span>
+    </div>
+
+    @if (carregando)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (!gruposLancamentos.Any())
+    {
+        <div class="alert alert-info shadow-sm animate__animated animate__fadeIn">
+            <i class="bi bi-info-circle-fill me-2"></i>Não há lançamentos pendentes para sua unidade.
+        </div>
+    }
+    else
+    {
+        @foreach (var grupo in gruposLancamentos)
+        {
+            var dataDia = grupo.Key;
+            bool estaAberto = datasExpandidas.Contains(dataDia);
+
+            <div class="card shadow-sm border-0 mb-3 animate__animated animate__fadeIn">
+                <div class="card-header bg-white py-3 border-bottom-0 cursor-pointer d-flex justify-content-between align-items-center" 
+                     @onclick="() => AlternarGrupo(dataDia)">
+                    <h5 class="mb-0 text-primary fw-bold">
+                        <i class="bi bi-calendar-event me-2"></i>@dataDia.ToLongDateString()
+                        <span class="badge bg-light text-primary border ms-2 small">@grupo.Count() itens</span>
+                    </h5>
+                    <i class="bi bi-chevron-down collapse-icon @(estaAberto ? "rotate-180" : "")"></i>
+                </div>
+
+                @if (estaAberto)
+                {
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 responsive-table">
+                                <thead class="table-light small">
+                                    <tr>
+                                        <th class="ps-4">Tipo</th>
+                                        <th>Categoria</th>
+                                        <th>Descrição</th>
+                                        <th>Valor</th>
+                                        <th class="text-center">Status</th>
+                                        <th class="text-center pe-4">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var l in grupo)
+                                    {
+                                        <tr>
+                                            <td class="ps-md-4" data-label="Tipo">
+                                                <span class="badge @(l.Tipo == "Entrada" ? "bg-success" : "bg-danger")">@l.Tipo</span>
+                                            </td>
+                                            <td data-label="Categoria" class="fw-bold">@l.Categoria</td>
+                                            <td data-label="Descrição" class="text-muted small">@l.Descricao</td>
+                                            <td data-label="Valor" class="fw-bold @(l.Tipo == "Entrada" ? "text-success" : "text-danger")">
+                                                R$ @l.Valor.ToString("N2")
+                                            </td>
+                                            <td data-label="Status" class="text-center">
+                                                <span class="badge @(l.Status == "Solicitado Ajuste" ? "bg-warning text-dark" : "bg-info text-dark")">@l.Status</span>
+                                            </td>
+                                            <td class="text-center pe-md-4">
+                                                @if (l.Status != "Solicitado Ajuste")
+                                                {
+                                                    <button class="btn btn-sm btn-outline-warning btn-responsive" @onclick="() => AbrirModalAjuste(l)">
+                                                        <i class="bi bi-patch-exclamation me-1"></i>Ajuste
+                                                    </button>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@if (exibirModalAjuste)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-fill me-2"></i>Motivo do Ajuste</h5>
+                    <button type="button" class="btn-close" @onclick="() => exibirModalAjuste = false"></button>
+                </div>
+                <div class="modal-body bg-light">
+                    <textarea class="form-control border-warning" rows="4" @bind="justificativaAjuste" placeholder="Descreva o que precisa ser alterado..."></textarea>
+                </div>
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-secondary" @onclick="() => exibirModalAjuste = false">Cancelar</button>
+                    <button type="button" class="btn btn-warning fw-bold" @onclick="ConfirmarSolicitacaoAjuste">Enviar Solicitação</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IEnumerable<IGrouping<DateTime, Lancamento>> gruposLancamentos = new List<IGrouping<DateTime, Lancamento>>();
+    private List<DateTime> datasExpandidas = new();
+    private bool carregando = true;
+    private int minhaCongregacaoId = 0;
+    private string nomeMinhaCongregacao = "";
+
+    private bool exibirModalAjuste = false;
+    private string justificativaAjuste = "";
+    private Lancamento? lancamentoParaAjuste;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var email = authState.User.Identity?.Name;
+        var usuario = await Db.Usuarios.FirstOrDefaultAsync(u => u.Email == email);
+        
+        if (usuario != null && usuario.CongregacaoId.HasValue)
+        {
+            minhaCongregacaoId = usuario.CongregacaoId.Value;
+            var cong = await Db.Congregacoes.FindAsync(minhaCongregacaoId);
+            nomeMinhaCongregacao = cong?.Nome ?? "";
+        }
+
+        await CarregarLancamentos();
+        if (gruposLancamentos.Any()) datasExpandidas.Add(gruposLancamentos.First().Key);
+    }
+
+    private async Task CarregarLancamentos()
+    {
+        carregando = true;
+        var lancamentos = await Db.Lancamentos
+            .Where(x => x.CongregacaoId == minhaCongregacaoId && x.Status != "Fechado")
+            .OrderByDescending(x => x.DataEvento).ToListAsync();
+        
+        gruposLancamentos = lancamentos.GroupBy(x => x.DataEvento.Date);
+        carregando = false;
+    }
+
+    private void AlternarGrupo(DateTime data)
+    {
+        if (datasExpandidas.Contains(data)) datasExpandidas.Remove(data);
+        else datasExpandidas.Add(data);
+    }
+
+    private async Task AbrirModalAjuste(Lancamento l) 
+    { 
+        lancamentoParaAjuste = l; 
+        justificativaAjuste = ""; 
+        exibirModalAjuste = true;
+        await Task.CompletedTask;
+    }
+
+    private async Task ConfirmarSolicitacaoAjuste()
+    {
+        if (string.IsNullOrWhiteSpace(justificativaAjuste))
+        {
+            await JS.InvokeVoidAsync("alert", "O motivo é obrigatório.");
+            return;
+        }
+
+        if (lancamentoParaAjuste != null)
+        {
+            lancamentoParaAjuste.Status = "Solicitado Ajuste";
+            lancamentoParaAjuste.Descricao += $" [MOTIVO AJUSTE: {justificativaAjuste}]";
+            Db.Lancamentos.Update(lancamentoParaAjuste);
+            await Db.SaveChangesAsync();
+            exibirModalAjuste = false;
+            await CarregarLancamentos();
+            await JS.InvokeVoidAsync("alert", "Solicitação enviada!");
+        }
+    }
+}

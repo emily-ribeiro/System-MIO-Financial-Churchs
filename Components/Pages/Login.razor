@@ -1,0 +1,91 @@
+@page "/login"
+@using SistemaIgreja.Data
+@using SistemaIgreja.Services
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject AppDbContext Db
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthProvider
+@inject ILoggerFactory LoggerFactory
+@inject ProvedorSessao ProvedorSessao
+@rendermode InteractiveServer
+
+<PageTitle>Login - ADBrás Jaboticabal</PageTitle>
+
+<div class="container d-flex justify-content-center align-items-center" style="min-height: 75vh;">
+    <div class="card shadow-lg border-0" style="width: 100%; max-width: 400px; border-radius: 15px;">
+        <div class="card-body p-5">
+            <div class="text-center mb-4">
+                <i class="bi bi-person-circle fs-1 text-primary"></i>
+                <h3 class="fw-bold mt-2">Acesso Restrito</h3>
+                <p class="text-muted">Entre com suas credenciais</p>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label fw-secondary">E-mail</label>
+                <input type="email" class="form-control form-control-lg" @bind="email" placeholder="nome@exemplo.com" />
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-secondary">Senha</label>
+                <input type="password" class="form-control form-control-lg" @bind="senha" placeholder="••••••••" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(mensagemErro))
+            {
+                <div class="alert alert-danger py-2 text-center animate__animated animate__shakeX">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i> @mensagemErro
+                </div>
+            }
+
+            <button type="button" class="btn btn-primary btn-lg w-100 shadow-sm" @onclick="TentarLogin">
+                <i class="bi bi-box-arrow-in-right me-2"></i> Entrar
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string email = "";
+    private string senha = "";
+    private string mensagemErro = "";
+
+    private async Task TentarLogin()
+    {
+        var logger = LoggerFactory?.CreateLogger("Login") ?? null;
+        logger?.LogInformation("TentarLogin invoked (email={email})", email);
+        try
+        {
+            // Validação básica
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(senha))
+            {
+                mensagemErro = "Preencha todos os campos!";
+                return;
+            }
+
+            // Busca o usuário no banco SQLite
+            var user = await Db.Usuarios
+                .FirstOrDefaultAsync(u => u.Email == email && u.Senha == senha);
+
+            if (user != null)
+            {
+                // Registra a sessão via ProvedorSessao 
+                await ProvedorSessao.Entrar(user);
+
+                // Redireciona para lançamentos após login bem-sucedido
+                Nav.NavigateTo("/");
+
+                return;
+            }
+
+            mensagemErro = "Usuário ou senha inválidos!";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            mensagemErro = "Erro ao tentar logar: " + ex.Message;
+            StateHasChanged();
+        }
+    }
+}

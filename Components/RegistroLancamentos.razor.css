@@ -1,0 +1,39 @@
+.cursor-pointer {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.cursor-pointer:hover {
+    background-color: #f8f9fa !important;
+}
+
+.collapse-icon {
+    transition: transform 0.3s;
+}
+
+.rotate-180 {
+    transform: rotate(180deg);
+}
+
+@media (max-width: 768px) {
+    .responsive-table thead { display: none; }
+    .responsive-table tr {
+        display: block;
+        border: 1px solid #eee;
+        margin-bottom: 1rem;
+        border-radius: 8px;
+        padding: 10px;
+        background: #fff;
+    }
+    .responsive-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 5px 0;
+    }
+    .responsive-table td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        color: #666;
+    }
+}
