@@ -8,9 +8,9 @@
 
 <PageTitle>Auditoria Mensal</PageTitle>
 
-<div class="container mt-4 pb-5" style="max-width: 1000px;">
+<div class="container mt-4 pb-5" style="max-width: 1100px;">
     <div class="d-flex align-items-center mb-4">
-        <div class="bg-primary text-white rounded-3 p-2 me-3">
+        <div class="bg-primary text-white rounded-3 p-2 me-3 shadow-sm">
             <i class="bi bi-shield-check fs-4"></i>
         </div>
         <h2 class="mb-0 fw-light">Auditoria <span class="fw-bold">Mensal</span></h2>
@@ -59,7 +59,7 @@
     else if (movimentosAgrupados != null && movimentosAgrupados.Any())
     {
         @* --- RESUMO GERAL --- *@
-        <div class="row g-3 mb-4">
+        <div class="row g-3 mb-4 animate__animated animate__fadeIn">
             <div class="col-md-4">
                 <div class="p-3 bg-white rounded-4 shadow-sm border-start border-success border-4">
                     <div class="small text-muted mb-1">Entradas</div>
@@ -87,16 +87,16 @@
             var diaRevisado = diasRevisados.Contains(dataChave);
 
             <div class="mb-3">
-                <div class="d-flex align-items-center p-3 bg-white rounded-4 shadow-sm @(diaRevisado ? "opacity-75" : "")">
+                <div class="d-flex align-items-center p-3 bg-white rounded-4 shadow-sm @(diaRevisado ? "bg-light opacity-75" : "")">
                     <div class="cursor-pointer d-flex align-items-center flex-grow-1" @onclick="() => AlternarDia(dataChave)">
-                        <i class="bi @(estaAberto ? "bi-dash-circle" : "bi-plus-circle") fs-5 me-3 text-muted"></i>
-                        <span class="fw-bold @(diaRevisado ? "text-success text-decoration-line-through" : "")">
+                        <i class="bi @(estaAberto ? "bi-dash-circle-fill" : "bi-plus-circle-fill") fs-5 me-3 @(estaAberto ? "text-primary" : "text-muted")"></i>
+                        <span class="fw-bold @(diaRevisado ? "text-success text-decoration-line-through" : "text-dark")">
                             @grupo.Key.ToLongDateString()
                         </span>
                     </div>
                     
                     <div class="d-flex align-items-center">
-                        <span class="small text-muted me-2 d-none d-md-inline">@(diaRevisado ? "Concluído" : "Pendente")</span>
+                        <span class="small text-muted me-2 d-none d-md-inline">@(diaRevisado ? "Revisado" : "Pendente")</span>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" role="switch" 
                                    checked="@diaRevisado" @onchange="(e) => MarcarRevisado(dataChave, (bool)(e.Value ?? false))">
@@ -106,40 +106,52 @@
 
                 @if (estaAberto)
                 {
-                    <div class="bg-white mx-3 p-3 rounded-bottom-4 shadow-sm animate__animated animate__fadeIn">
-                        <table class="table table-borderless align-middle mb-0">
-                            <thead class="text-muted small text-uppercase border-bottom">
-                                <tr>
-                                    <th>Tipo / Categoria</th>
-                                    <th>Descrição</th>
-                                    <th class="text-end">Valor</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var item in grupo)
-                                {
-                                    <tr class="border-bottom-faint">
-                                        <td>
-                                            <div class="badge @(item.Tipo == "Entrada" ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger") border-0 mb-1">
-                                                @item.Tipo
-                                            </div>
-                                            <div class="fw-bold">@item.Categoria</div>
-                                        </td>
-                                        <td class="small text-muted">@item.Descricao</td>
-                                        <td class="text-end fw-bold">R$ @item.Valor.ToString("N2")</td>
-                                        <td class="text-end">
-                                            @if (item.Status == "Solicitado Ajuste")
-                                            {
-                                                <button class="btn btn-sm btn-soft-warning rounded-pill px-3 fw-bold" @onclick="() => AbrirModalAcaoAjuste(item)">
-                                                    Ajustar
-                                                </button>
-                                            }
-                                        </td>
+                    <div class="bg-white mx-3 p-3 rounded-bottom-4 shadow-sm border-top animate__animated animate__fadeIn">
+                        <div class="table-responsive">
+                            <table class="table table-borderless align-middle mb-0">
+                                <thead class="text-muted small text-uppercase border-bottom">
+                                    <tr>
+                                        <th style="width: 25%">Categoria</th>
+                                        <th style="width: 30%">Descrição</th>
+                                        <th style="width: 20%">Forma de Pagto</th> @* COLUNA ATUALIZADA *@
+                                        <th class="text-end">Valor</th>
+                                        <th></th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in grupo)
+                                    {
+                                        <tr class="border-bottom-faint">
+                                            <td>
+                                                <div class="badge @(item.Tipo == "Entrada" ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger") border-0 mb-1">
+                                                    @item.Tipo
+                                                </div>
+                                                <div class="fw-bold">@item.Categoria</div>
+                                            </td>
+                                            <td class="small text-muted">@item.Descricao</td>
+                                            
+                                            @* --- NOVA CÉLULA: FORMA DE PAGAMENTO --- *@
+                                            <td>
+                                                <span class="badge rounded-pill border text-dark fw-normal bg-light">
+                                                    <i class="bi @GetIconForma(item.FormaPagamento) me-1"></i>
+                                                    @item.FormaPagamento
+                                                </span>
+                                            </td>
+
+                                            <td class="text-end fw-bold">R$ @item.Valor.ToString("N2")</td>
+                                            <td class="text-end">
+                                                @if (item.Status == "Solicitado Ajuste")
+                                                {
+                                                    <button class="btn btn-sm btn-soft-warning rounded-pill px-3 fw-bold" @onclick="() => AbrirModalAcaoAjuste(item)">
+                                                        <i class="bi bi-tools me-1"></i> Ajustar
+                                                    </button>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 }
             </div>
@@ -148,11 +160,12 @@
         <div class="mt-5 text-center">
             @if (!PodeFecharTudo)
             {
-                <p class="text-muted small animate__animated animate__fadeIn">
-                    <i class="bi bi-info-circle me-1"></i> 
-                    Para habilitar o fechamento, resolva todos os ajustes e <strong>marque cada dia como revisado</strong>.
-                </p>
+                <div class="alert alert-light border-0 small mb-3 d-inline-block rounded-pill px-4">
+                    <i class="bi bi-info-circle text-primary me-2"></i> 
+                    Para finalizar, resolva os ajustes e marque todos os dias como <strong>revisados</strong>.
+                </div>
             }
+            <br />
             <button class="btn btn-primary btn-lg px-5 rounded-pill shadow-lg fw-bold" 
                     disabled="@(!PodeFecharTudo)" @onclick="FinalizarFechamento">
                 <i class="bi bi-check2-all me-2"></i>Finalizar Auditoria
@@ -161,7 +174,7 @@
     }
 </div>
 
-@* --- MODAL DE AJUSTE ATUALIZADO (COM TIPO) --- *@
+@* --- MODAL DE AJUSTE MANTIDO --- *@
 @if (exibirModalAjuste)
 {
     <div class="modal fade show d-block" style="background: rgba(0,0,0,0.2); backdrop-filter: blur(4px);">
@@ -239,6 +252,16 @@
     private decimal novoValorAjuste;
     private string novaCategoriaAjuste = "";
 
+    // LÓGICA DE ÍCONES PARA FORMA DE PAGAMENTO
+    private string GetIconForma(string? forma) => forma switch
+    {
+        "Pix" => "bi-qr-code",
+        "Dinheiro" => "bi-cash-stack",
+        "Cartão" => "bi-credit-card",
+        "Transferência" => "bi-bank",
+        _ => "bi-wallet2"
+    };
+
     private bool PodeFecharTudo => movimentosAgrupados.Any() && 
                                   diasRevisados.Count == movimentosAgrupados.Count && 
                                   !movimentosAgrupados.SelectMany(g => g).Any(i => i.Status == "Solicitado Ajuste");
@@ -269,7 +292,6 @@
         carregando = false;
     }
 
-    private string ObterNomeMes(int mes) => System.Globalization.DateTimeFormatInfo.CurrentInfo.GetMonthName(mes);
     private void AlternarDia(string data) { if (diasExpandidos.Contains(data)) diasExpandidos.Remove(data); else diasExpandidos.Add(data); }
     private void MarcarRevisado(string data, bool revisado) { if (revisado) diasRevisados.Add(data); else diasRevisados.Remove(data); }
 

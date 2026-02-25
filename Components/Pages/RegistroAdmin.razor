@@ -8,7 +8,7 @@
 
 <PageTitle>Gestão Global de Lançamentos</PageTitle>
 
-<div class="container mt-4 pb-5" style="max-width: 1100px;">
+<div class="container mt-4 pb-5" style="max-width: 1200px;">
     <div class="d-flex align-items-center justify-content-between mb-4">
         <div class="d-flex align-items-center">
             <div class="bg-dark text-white rounded-3 p-2 me-3 shadow-sm">
@@ -19,18 +19,26 @@
         <div class="badge bg-primary px-3 py-2 rounded-pill shadow-sm">Modo Administrador</div>
     </div>
 
-    @* --- FILTROS --- *@
+    @* --- FILTROS ATUALIZADOS --- *@
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-4">
             <div class="row g-3 align-items-end">
-                <div class="col-md-5">
-                    <label class="form-label small fw-bold text-muted">Filtrar Congregação</label>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-muted">Congregação</label>
                     <select class="form-select border-0 bg-light rounded-3" @bind="idUnidadeFiltro">
                         <option value="0">Todas as Unidades</option>
                         @foreach (var c in listaCongregacoes)
                         {
                             <option value="@c.Id">@c.Nome</option>
                         }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">Tipo</label>
+                    <select class="form-select border-0 bg-light rounded-3" @bind="tipoSelecionado">
+                        <option value="">Todos</option>
+                        <option value="Entrada">Entrada (+)</option>
+                        <option value="Saida">Saída (-)</option>
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -63,7 +71,8 @@
                         <tr>
                             <th class="ps-4">Data</th>
                             <th>Unidade</th>
-                            <th>Categoria</th>
+                            <th>Categoria / Descrição</th>
+                            <th>Forma</th> @* NOVA COLUNA *@
                             <th>Valor</th>
                             <th class="text-center">Status</th>
                             <th class="text-end pe-4">Ações</th>
@@ -75,7 +84,19 @@
                             <tr>
                                 <td class="ps-4">@item.DataEvento.ToShortDateString()</td>
                                 <td><span class="badge bg-light text-dark border">@(item.Congregacao?.Nome ?? "N/A")</span></td>
-                                <td class="fw-bold">@item.Categoria</td>
+                                <td>
+                                    <div class="fw-bold">@item.Categoria</div>
+                                    <div class="small text-muted text-truncate" style="max-width: 200px;">@item.Descricao</div>
+                                </td>
+                                
+                                @* --- COLUNA FORMA DE PAGAMENTO COM ÍCONE --- *@
+                                <td>
+                                    <span class="badge rounded-pill border text-dark fw-normal bg-light">
+                                        <i class="bi @GetIconForma(item.FormaPagamento) me-1"></i>
+                                        @item.FormaPagamento
+                                    </span>
+                                </td>
+
                                 <td class="@(item.Tipo == "Entrada" ? "text-success" : "text-danger") fw-bold">
                                     R$ @item.Valor.ToString("N2")
                                 </td>
@@ -84,7 +105,7 @@
                                 </td>
                                 <td class="text-end pe-4">
                                     <button class="btn btn-sm btn-outline-primary rounded-pill px-3" @onclick="() => IniciarEdicao(item)">
-                                        <i class="bi bi-pencil"></i> Editar
+                                        <i class="bi bi-pencil"></i>
                                     </button>
                                 </td>
                             </tr>
@@ -96,7 +117,7 @@
     }
 </div>
 
-@* --- MODAL DE EDIÇÃO --- *@
+@* --- MODAL DE EDIÇÃO MANTIDO --- *@
 @if (mostrarModal)
 {
     <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);">
@@ -149,6 +170,7 @@
     private int idUnidadeFiltro = 0;
     private DateTime dataInicio = DateTime.Now.AddDays(-30);
     private DateTime dataFim = DateTime.Now;
+    private string tipoSelecionado = ""; 
 
     private bool mostrarModal = false;
     private Lancamento itemEdicao = new();
@@ -163,16 +185,31 @@
     private async Task CarregarDados()
     {
         carregando = true;
-        var query = Db.Lancamentos.Include(x => x.Congregacao).AsQueryable();
+        
+        IQueryable<Lancamento> query = Db.Lancamentos
+            .Include(x => x.Congregacao)
+            .Where(x => x.DataEvento >= dataInicio && x.DataEvento <= dataFim);
 
         if (idUnidadeFiltro > 0)
             query = query.Where(x => x.CongregacaoId == idUnidadeFiltro);
 
-        query = query.Where(x => x.DataEvento >= dataInicio && x.DataEvento <= dataFim);
+        if (!string.IsNullOrEmpty(tipoSelecionado))
+            query = query.Where(x => x.Tipo == tipoSelecionado);
 
         listaLancamentos = await query.OrderByDescending(x => x.DataEvento).ToListAsync();
+        
         carregando = false;
     }
+
+    private string GetIconForma(string? forma) => forma switch
+    {
+        "Pix" => "bi-qr-code",
+        "Dinheiro" => "bi-cash-stack",
+        "Cartão" => "bi-credit-card",
+        "Boleto" => "bi-file-earmark-text",
+        "Transferência" => "bi-bank",
+        _ => "bi-wallet2"
+    };
 
     private void IniciarEdicao(Lancamento item)
     {

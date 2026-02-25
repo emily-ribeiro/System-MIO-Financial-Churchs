@@ -6,6 +6,7 @@ public class Lancamento
     public int Id { get; set; }
     public int CongregacaoId { get; set; }
     
+    
    
     public virtual Congregacao? Congregacao { get; set; } 
 
@@ -16,4 +17,5 @@ public class Lancamento
     public string Descricao { get; set; } = "";
     public string Status { get; set; } = "Aberto";
     public string FormaPagamento { get; set; } = "";
+    public int Parcelas { get; set; } = 1;
 }
