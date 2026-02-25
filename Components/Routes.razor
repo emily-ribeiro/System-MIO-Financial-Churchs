@@ -1,14 +1,21 @@
 ﻿@using Microsoft.AspNetCore.Components.Authorization
 
 <CascadingAuthenticationState>
-    <Router AppAssembly="typeof(Program).Assembly">
+    @* Adicionado @ antes de typeof *@
+    <Router AppAssembly="@typeof(Program).Assembly">
         <Found Context="routeData">
-            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            @* Adicionado @ antes de typeof *@
+            <AuthorizeRouteView RouteData="routeData" DefaultLayout="@typeof(Layout.MainLayout)">
                 <NotAuthorized>
                     <div class="container mt-5 text-center">
-                        <h3 class="text-danger">Acesso Negado</h3>
-                        <p>Você não tem permissão para ver esta página.</p>
-                        <a href="/login" class="btn btn-primary">Voltar para o Login</a>
+                        <div class="card shadow border-0 p-5 rounded-4">
+                            <i class="bi bi-shield-lock text-danger fs-1 mb-3"></i>
+                            <h3 class="text-danger fw-bold">Acesso Negado</h3>
+                            <p class="text-muted">Você não tem permissão para ver esta página.</p>
+                            <div class="mt-4">
+                                <a href="/login" class="btn btn-primary rounded-pill px-4">Voltar para o Login</a>
+                            </div>
+                        </div>
                     </div>
                 </NotAuthorized>
             </AuthorizeRouteView>
@@ -16,8 +23,11 @@
         </Found>
         <NotFound>
             <PageTitle>Página não encontrada</PageTitle>
-            <LayoutView Layout="typeof(Layout.MainLayout)">
-                <p role="alert">Desculpe, não há nada neste endereço.</p>
+            @* Adicionado @ antes de typeof *@
+            <LayoutView Layout="@typeof(Layout.MainLayout)">
+                <div class="container mt-5 text-center">
+                     <p role="alert" class="alert alert-warning">Desculpe, não há nada neste endereço.</p>
+                </div>
             </LayoutView>
         </NotFound>
     </Router>

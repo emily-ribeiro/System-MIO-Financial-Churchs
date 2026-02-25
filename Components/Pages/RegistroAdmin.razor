@@ -1,0 +1,196 @@
+@page "/admin/lancamentos"
+@attribute [Authorize(Roles = "Admin")]
+@using SistemaIgreja.Data
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext Db
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Gestão Global de Lançamentos</PageTitle>
+
+<div class="container mt-4 pb-5" style="max-width: 1100px;">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div class="d-flex align-items-center">
+            <div class="bg-dark text-white rounded-3 p-2 me-3 shadow-sm">
+                <i class="bi bi-pencil-square fs-4"></i>
+            </div>
+            <h2 class="mb-0 fw-light">Gestão <span class="fw-bold">Global</span></h2>
+        </div>
+        <div class="badge bg-primary px-3 py-2 rounded-pill shadow-sm">Modo Administrador</div>
+    </div>
+
+    @* --- FILTROS --- *@
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label small fw-bold text-muted">Filtrar Congregação</label>
+                    <select class="form-select border-0 bg-light rounded-3" @bind="idUnidadeFiltro">
+                        <option value="0">Todas as Unidades</option>
+                        @foreach (var c in listaCongregacoes)
+                        {
+                            <option value="@c.Id">@c.Nome</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-muted">Data Inicial</label>
+                    <input type="date" class="form-control border-0 bg-light rounded-3" @bind="dataInicio" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-muted">Data Final</label>
+                    <input type="date" class="form-control border-0 bg-light rounded-3" @bind="dataFim" />
+                </div>
+                <div class="col-md-1 text-end">
+                    <button class="btn btn-dark w-100 rounded-3 shadow-sm py-2" @onclick="CarregarDados">
+                        <i class="bi bi-filter"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (carregando)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary opacity-25"></div></div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-muted small text-uppercase">
+                        <tr>
+                            <th class="ps-4">Data</th>
+                            <th>Unidade</th>
+                            <th>Categoria</th>
+                            <th>Valor</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-end pe-4">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in listaLancamentos)
+                        {
+                            <tr>
+                                <td class="ps-4">@item.DataEvento.ToShortDateString()</td>
+                                <td><span class="badge bg-light text-dark border">@(item.Congregacao?.Nome ?? "N/A")</span></td>
+                                <td class="fw-bold">@item.Categoria</td>
+                                <td class="@(item.Tipo == "Entrada" ? "text-success" : "text-danger") fw-bold">
+                                    R$ @item.Valor.ToString("N2")
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge rounded-pill @(item.Status == "Fechado" ? "bg-success" : "bg-warning text-dark")">@item.Status</span>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3" @onclick="() => IniciarEdicao(item)">
+                                        <i class="bi bi-pencil"></i> Editar
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@* --- MODAL DE EDIÇÃO --- *@
+@if (mostrarModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 shadow-lg">
+                <div class="modal-header border-0 p-4">
+                    <h5 class="fw-bold mb-0">Editar Lançamento</h5>
+                    <button type="button" class="btn-close" @onclick="() => mostrarModal = false"></button>
+                </div>
+                <div class="modal-body p-4 pt-0">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Valor (R$)</label>
+                        <input type="number" step="0.01" class="form-control border-0 bg-light rounded-3 py-2" @bind="itemEdicao.Valor" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Categoria</label>
+                        <select class="form-select border-0 bg-light rounded-3 py-2" @bind="itemEdicao.Categoria">
+                            @if (itemEdicao.Tipo == "Entrada") {
+                                <option value="Dízimo">Dízimo</option><option value="Oferta">Oferta</option>
+                                <option value="Cantina">Cantina</option><option value="Outras Entradas">Outras Entradas</option>
+                            } else {
+                                <option value="Conta de Luz">Conta de Luz</option><option value="Conta de Água">Conta de Água</option>
+                                <option value="Aluguel">Aluguel</option><option value="Manutenção">Manutenção</option>
+                                <option value="Outras Saídas">Outras Saídas</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Motivo da Alteração</label>
+                        <textarea class="form-control border-0 bg-light rounded-3" rows="2" @bind="justificativaAdm"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4">
+                    <button class="btn btn-link text-muted text-decoration-none" @onclick="() => mostrarModal = false">Cancelar</button>
+                    <button class="btn btn-dark rounded-pill px-4 shadow-sm" @onclick="SalvarAlteracao">Salvar Alterações</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .rounded-4 { border-radius: 1rem !important; }
+</style>
+
+@code {
+    private List<Congregacao> listaCongregacoes = new();
+    private List<Lancamento> listaLancamentos = new();
+    private bool carregando = false;
+    private int idUnidadeFiltro = 0;
+    private DateTime dataInicio = DateTime.Now.AddDays(-30);
+    private DateTime dataFim = DateTime.Now;
+
+    private bool mostrarModal = false;
+    private Lancamento itemEdicao = new();
+    private string justificativaAdm = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        listaCongregacoes = await Db.Congregacoes.ToListAsync();
+        await CarregarDados();
+    }
+
+    private async Task CarregarDados()
+    {
+        carregando = true;
+        var query = Db.Lancamentos.Include(x => x.Congregacao).AsQueryable();
+
+        if (idUnidadeFiltro > 0)
+            query = query.Where(x => x.CongregacaoId == idUnidadeFiltro);
+
+        query = query.Where(x => x.DataEvento >= dataInicio && x.DataEvento <= dataFim);
+
+        listaLancamentos = await query.OrderByDescending(x => x.DataEvento).ToListAsync();
+        carregando = false;
+    }
+
+    private void IniciarEdicao(Lancamento item)
+    {
+        itemEdicao = item;
+        justificativaAdm = "";
+        mostrarModal = true;
+    }
+
+    private async Task SalvarAlteracao()
+    {
+        if (itemEdicao != null)
+        {
+            itemEdicao.Descricao += $" [Editado por Admin: {justificativaAdm} em {DateTime.Now:dd/MM}]";
+            Db.Lancamentos.Update(itemEdicao);
+            await Db.SaveChangesAsync();
+            mostrarModal = false;
+            await CarregarDados();
+            await JS.InvokeVoidAsync("alert", "Lançamento atualizado com sucesso!");
+        }
+    }
+}
