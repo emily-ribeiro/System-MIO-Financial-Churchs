@@ -1,5 +1,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
 @inject NavigationManager NavManager
+@inject AppDbContext Db
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -13,6 +15,7 @@
 <div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
     <nav class="flex-column nav-scrollable">
         
+        @* --- LINKS GERAIS (PARA TODOS LOGADOS) --- *@
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item">
@@ -31,6 +34,7 @@
             </Authorized>
         </AuthorizeView>
 
+        @* --- LINKS DO TESOUREIRO --- *@
         <AuthorizeView Roles="Tesoureiro">
             <Authorized>
                 <div class="nav-item">
@@ -42,6 +46,7 @@
             </Authorized>
         </AuthorizeView>
 
+        @* --- LINKS DO ADMINISTRADOR --- *@
         <AuthorizeView Roles="Admin">
             <Authorized>
                 <div class="section-label">Administração</div>
@@ -64,6 +69,22 @@
                     <NavLink class="nav-link" href="admin/lancamentos">
                         <span class="icon-wrapper"><i class="bi bi-pencil-square"></i></span>
                         <span class="nav-text">Gestão Global</span>
+                    </NavLink>
+                </div>
+
+                @* --- LINK DE REPASSES NO LUGAR CORRETO --- *@
+                <div class="nav-item">
+                    <NavLink class="nav-link d-flex align-items-center justify-content-between" href="admin/gestao-repasses">
+                        <div>
+                            <span class="icon-wrapper"><i class="bi bi-arrow-left-right text-warning"></i></span>
+                            <span class="nav-text">Validar Repasses</span>
+                        </div>
+                        @if (TotalPendentes > 0)
+                        {
+                            <span class="badge bg-danger rounded-pill shadow-sm animate__animated animate__pulse animate__infinite" style="font-size: 0.75rem;">
+                                @TotalPendentes
+                            </span>
+                        }
                     </NavLink>
                 </div>
 
@@ -90,11 +111,12 @@
             </Authorized>
         </AuthorizeView>
 
+        @* --- BOTÃO SAIR --- *@
         <AuthorizeView>
             <Authorized>
                 <hr class="menu-sep" />
                 <div class="nav-item">
-                    <button class="nav-link" @onclick="Sair">
+                    <button class="nav-link w-100 text-start border-0 bg-transparent" @onclick="Sair">
                         <span class="icon-wrapper"><i class="bi bi-box-arrow-right"></i></span>
                         <span class="nav-text">Sair</span>
                     </button>
@@ -110,6 +132,19 @@
     private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
 
     [Inject] public ProvedorSessao ProvedorSessao { get; set; } = default!;
+
+    private int TotalPendentes = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Conta repasses pendentes agrupando por código de transferência (1 notificação por repasse)
+        TotalPendentes = await Db.Lancamentos
+            .Where(x => (x.Categoria == "Repasse Matriz" || x.Categoria == "Repasse Recebido")
+                        && (x.RepasseStatus == null || x.RepasseStatus == "Pendente"))
+            .Select(x => x.CodTransferencia ?? x.Id.ToString())
+            .Distinct()
+            .CountAsync();
+    }
 
     private async Task Sair()
     {

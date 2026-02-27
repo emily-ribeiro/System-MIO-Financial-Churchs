@@ -7,5 +7,6 @@ namespace SistemaIgreja.Data
         
         //Define se a igreja está ativa ou fechada
         public bool Ativo { get; set; } = true; 
+        public bool EhMatriz { get; set; }= false;
     }
 }

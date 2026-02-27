@@ -11,8 +11,8 @@ using SistemaIgreja.Data;
 namespace SistemaIgreja.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260224210131_AddStatusCongregacao")]
-    partial class AddStatusCongregacao
+    [Migration("20260227002621_BancoInicialLimpo")]
+    partial class BancoInicialLimpo
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -27,6 +27,9 @@ namespace SistemaIgreja.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("Ativo")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("EhMatriz")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Nome")
@@ -48,7 +51,10 @@ namespace SistemaIgreja.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("CongregacaoId")
+                    b.Property<string>("CodTransferencia")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CongregacaoId")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("DataEvento")
@@ -62,11 +68,11 @@ namespace SistemaIgreja.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("NomeCongregacao")
-                        .HasColumnType("TEXT");
-
                     b.Property<int>("Parcelas")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("RepasseStatus")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -81,6 +87,8 @@ namespace SistemaIgreja.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CongregacaoId");
+
                     b.ToTable("Lancamentos");
                 });
 
@@ -88,6 +96,9 @@ namespace SistemaIgreja.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Ativo")
                         .HasColumnType("INTEGER");
 
                     b.Property<int?>("CongregacaoId")
@@ -101,9 +112,6 @@ namespace SistemaIgreja.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("NomeCongregacao")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Perfil")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -115,6 +123,17 @@ namespace SistemaIgreja.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Usuarios");
+                });
+
+            modelBuilder.Entity("SistemaIgreja.Data.Lancamento", b =>
+                {
+                    b.HasOne("SistemaIgreja.Data.Congregacao", "Congregacao")
+                        .WithMany()
+                        .HasForeignKey("CongregacaoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Congregacao");
                 });
 #pragma warning restore 612, 618
         }

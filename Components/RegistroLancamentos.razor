@@ -56,7 +56,9 @@
                                         <th>Categoria</th>
                                         <th>Descrição</th>
                                         <th>Valor</th>
+                                        
                                         <th class="text-center">Status</th>
+                                        <th class="text-center">Forma de Pagamento</th>
                                         <th class="text-center pe-4">Ação</th>
                                     </tr>
                                 </thead>
@@ -74,6 +76,9 @@
                                             </td>
                                             <td data-label="Status" class="text-center">
                                                 <span class="badge @(l.Status == "Solicitado Ajuste" ? "bg-warning text-dark" : "bg-info text-dark")">@l.Status</span>
+                                            </td>
+                                            <td class="text-center pe-md-4">
+                                                <span class="badge bg-secondary">@l.FormaPagamento</span>
                                             </td>
                                             <td class="text-center pe-md-4">
                                                 @if (l.Status != "Solicitado Ajuste")

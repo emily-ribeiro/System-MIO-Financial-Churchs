@@ -29,7 +29,11 @@ public class ProvedorSessao : AuthenticationStateProvider
             var resultado = await _storage.GetAsync<Usuario>("sessao_igreja");
             var usuario = resultado.Success ? resultado.Value : null;
 
-            if (usuario == null) return new AuthenticationState(_anonimo);
+            if (usuario == null)
+            {
+                _logger?.LogInformation("GetAuthenticationStateAsync: no session found in ProtectedLocalStorage.");
+                return new AuthenticationState(_anonimo);
+            }
 
             // Atualiza a memória fotográfica com a congregação
             _usuarioEmMemoria = CriarPrincipal(usuario);
@@ -45,8 +49,16 @@ public class ProvedorSessao : AuthenticationStateProvider
     public async Task Entrar(Usuario usuario)
     {
         _logger?.LogInformation("Entrar: storing session for {email}", usuario?.Email);
-        await _storage.SetAsync("sessao_igreja", usuario);
-        
+        try
+        {
+            await _storage.SetAsync("sessao_igreja", usuario);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Entrar: falha ao gravar sessao_igreja em ProtectedLocalStorage.");
+            // Continuar: manter sessão em memória mesmo se storage falhar
+        }
+
         // Atualiza a memória fotográfica com a congregação
         _usuarioEmMemoria = CriarPrincipal(usuario);
 
@@ -70,7 +82,15 @@ public class ProvedorSessao : AuthenticationStateProvider
 
     public async Task Sair()
     {
-        await _storage.DeleteAsync("sessao_igreja");
+        _logger?.LogInformation("Sair: clearing session and notifying anonymous state.");
+        try
+        {
+            await _storage.DeleteAsync("sessao_igreja");
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Sair: erro ao deletar sessao_igreja do ProtectedLocalStorage.");
+        }
         _usuarioEmMemoria = null;
         NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(_anonimo)));
     }

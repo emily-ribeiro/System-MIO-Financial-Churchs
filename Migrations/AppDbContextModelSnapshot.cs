@@ -26,6 +26,9 @@ namespace SistemaIgreja.Migrations
                     b.Property<bool>("Ativo")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("EhMatriz")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -45,6 +48,9 @@ namespace SistemaIgreja.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("CodTransferencia")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("CongregacaoId")
                         .HasColumnType("INTEGER");
 
@@ -61,6 +67,9 @@ namespace SistemaIgreja.Migrations
 
                     b.Property<int>("Parcelas")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("RepasseStatus")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Status")
                         .IsRequired()

@@ -2,13 +2,15 @@
 @attribute [Authorize(Roles = "Admin")]
 @using SistemaIgreja.Data
 @using Microsoft.EntityFrameworkCore
+@using System.Text
 @inject AppDbContext Db
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
-<PageTitle>Gestão Global de Lançamentos</PageTitle>
+<PageTitle>Gestão Global</PageTitle>
 
 <div class="container mt-4 pb-5" style="max-width: 1200px;">
+    @* --- CABEÇALHO --- *@
     <div class="d-flex align-items-center justify-content-between mb-4">
         <div class="d-flex align-items-center">
             <div class="bg-dark text-white rounded-3 p-2 me-3 shadow-sm">
@@ -16,24 +18,57 @@
             </div>
             <h2 class="mb-0 fw-light">Gestão <span class="fw-bold">Global</span></h2>
         </div>
-        <div class="badge bg-primary px-3 py-2 rounded-pill shadow-sm">Modo Administrador</div>
+        <div class="badge bg-primary px-3 py-2 rounded-pill shadow-sm">Administrador</div>
     </div>
 
-    @* --- FILTROS ATUALIZADOS --- *@
+    @* --- CARDS DE RESUMO --- *@
+    <div class="row g-3 mb-4 animate__animated animate__fadeIn">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 text-center p-3" style="background: #e7f5ec; color: #0e632b;">
+                <p class="small fw-bold mb-1 text-uppercase opacity-75">Total Entradas</p>
+                <h3 class="fw-bold mb-0">R$ @totalEntradas.ToString("N2")</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 text-center p-3" style="background: #fdf2f2; color: #a91c1c;">
+                <p class="small fw-bold mb-1 text-uppercase opacity-75">Total Saídas</p>
+                <h3 class="fw-bold mb-0">R$ @totalSaidas.ToString("N2")</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 text-center p-3" style="background: #eef2ff; color: #3730a3;">
+                <p class="small fw-bold mb-1 text-uppercase opacity-75">Saldo Líquido</p>
+                <h3 class="fw-bold mb-0">R$ @saldoLiquido.ToString("N2")</h3>
+            </div>
+        </div>
+    </div>
+
+    @* --- BARRA DE FILTROS --- *@
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-4">
             <div class="row g-3 align-items-end">
                 <div class="col-md-3">
-                    <label class="form-label small fw-bold text-muted">Congregação</label>
-                    <select class="form-select border-0 bg-light rounded-3" @bind="idUnidadeFiltro">
-                        <option value="0">Todas as Unidades</option>
-                        @foreach (var c in listaCongregacoes)
-                        {
-                            <option value="@c.Id">@c.Nome</option>
-                        }
+                    <label class="form-label small fw-bold text-muted">Tipo de Consulta</label>
+                    <select class="form-select border-0 bg-light rounded-3 fw-bold" value="@consultaSelecionada" @onchange="OnConsultaChanged">
+                        <option value="0">Visão Global (Consolidado)</option>
+                        <option value="1">Gestão Matriz (Sede)</option>
+                        <option value="2">Gestão Campo (Congregações)</option>
+                        <option value="3">Auditoria de Repasses (Fluxo)</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+
+                @if (consultaSelecionada == 2 || consultaSelecionada == 3)
+                {
+                    <div class="col-md-3 animate__animated animate__fadeIn">
+                        <label class="form-label small fw-bold text-muted">Congregação</label>
+                        <select class="form-select border-0 bg-light rounded-3" @bind="idUnidadeFiltro">
+                            <option value="0">Todas as Unidades</option>
+                            @foreach (var c in listaCongregacoes.Where(x => !x.EhMatriz)) { <option value="@c.Id">@c.Nome</option> }
+                        </select>
+                    </div>
+                }
+
+                <div class="@(consultaSelecionada == 2 || consultaSelecionada == 3 ? "col-md-2" : "col-md-3")">
                     <label class="form-label small fw-bold text-muted">Tipo</label>
                     <select class="form-select border-0 bg-light rounded-3" @bind="tipoSelecionado">
                         <option value="">Todos</option>
@@ -41,29 +76,26 @@
                         <option value="Saida">Saída (-)</option>
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label small fw-bold text-muted">Data Inicial</label>
-                    <input type="date" class="form-control border-0 bg-light rounded-3" @bind="dataInicio" />
+
+                <div class="@(consultaSelecionada == 2 || consultaSelecionada == 3 ? "col-md-3" : "col-md-5")">
+                    <label class="form-label small fw-bold text-muted">Período</label>
+                    <div class="input-group">
+                        <input type="date" class="form-control border-0 bg-light rounded-start-3" @bind="dataInicio" />
+                        <input type="date" class="form-control border-0 bg-light rounded-end-3" @bind="dataFim" />
+                    </div>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label small fw-bold text-muted">Data Final</label>
-                    <input type="date" class="form-control border-0 bg-light rounded-3" @bind="dataFim" />
-                </div>
-                <div class="col-md-1 text-end">
-                    <button class="btn btn-dark w-100 rounded-3 shadow-sm py-2" @onclick="CarregarDados">
-                        <i class="bi bi-filter"></i>
-                    </button>
+
+                <div class="col-md-1 text-end d-flex gap-2">
+                    <button class="btn btn-dark rounded-3 shadow-sm py-2 px-3" @onclick="CarregarDados" title="Filtrar"><i class="bi bi-filter"></i></button>
+                    <button class="btn btn-success rounded-3 shadow-sm py-2 px-3" @onclick="() => mostrarModalExportar = true" title="Exportar CSV"><i class="bi bi-file-earmark-spreadsheet"></i></button>
                 </div>
             </div>
         </div>
     </div>
 
-    @if (carregando)
-    {
-        <div class="text-center py-5"><div class="spinner-border text-primary opacity-25"></div></div>
-    }
-    else
-    {
+    @* --- TABELA --- *@
+    @if (carregando) { <div class="text-center py-5"><div class="spinner-border text-primary opacity-25"></div></div> }
+    else {
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
@@ -72,15 +104,14 @@
                             <th class="ps-4">Data</th>
                             <th>Unidade</th>
                             <th>Categoria / Descrição</th>
-                            <th>Forma</th> @* NOVA COLUNA *@
+                            <th>Forma</th>
                             <th>Valor</th>
                             <th class="text-center">Status</th>
                             <th class="text-end pe-4">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var item in listaLancamentos)
-                        {
+                        @foreach (var item in listaLancamentos) {
                             <tr>
                                 <td class="ps-4">@item.DataEvento.ToShortDateString()</td>
                                 <td><span class="badge bg-light text-dark border">@(item.Congregacao?.Nome ?? "N/A")</span></td>
@@ -88,25 +119,11 @@
                                     <div class="fw-bold">@item.Categoria</div>
                                     <div class="small text-muted text-truncate" style="max-width: 200px;">@item.Descricao</div>
                                 </td>
-                                
-                                @* --- COLUNA FORMA DE PAGAMENTO COM ÍCONE --- *@
-                                <td>
-                                    <span class="badge rounded-pill border text-dark fw-normal bg-light">
-                                        <i class="bi @GetIconForma(item.FormaPagamento) me-1"></i>
-                                        @item.FormaPagamento
-                                    </span>
-                                </td>
-
-                                <td class="@(item.Tipo == "Entrada" ? "text-success" : "text-danger") fw-bold">
-                                    R$ @item.Valor.ToString("N2")
-                                </td>
-                                <td class="text-center">
-                                    <span class="badge rounded-pill @(item.Status == "Fechado" ? "bg-success" : "bg-warning text-dark")">@item.Status</span>
-                                </td>
+                                <td><span class="badge rounded-pill border text-dark fw-normal bg-light"><i class="bi @GetIconForma(item.FormaPagamento) me-1"></i> @item.FormaPagamento</span></td>
+                                <td class="@(item.Tipo == "Entrada" ? "text-success" : "text-danger") fw-bold">R$ @item.Valor.ToString("N2")</td>
+                                <td class="text-center"><span class="badge rounded-pill @(item.Status == "Fechado" ? "bg-success" : "bg-warning text-dark")">@item.Status</span></td>
                                 <td class="text-end pe-4">
-                                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3" @onclick="() => IniciarEdicao(item)">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3" @onclick="() => IniciarEdicao(item)"><i class="bi bi-pencil"></i></button>
                                 </td>
                             </tr>
                         }
@@ -117,117 +134,165 @@
     }
 </div>
 
-@* --- MODAL DE EDIÇÃO MANTIDO --- *@
-@if (mostrarModal)
-{
-    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 rounded-4 shadow-lg">
-                <div class="modal-header border-0 p-4">
-                    <h5 class="fw-bold mb-0">Editar Lançamento</h5>
-                    <button type="button" class="btn-close" @onclick="() => mostrarModal = false"></button>
-                </div>
-                <div class="modal-body p-4 pt-0">
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Valor (R$)</label>
-                        <input type="number" step="0.01" class="form-control border-0 bg-light rounded-3 py-2" @bind="itemEdicao.Valor" />
+@* --- MODAIS --- *@
+    @if (mostrarModalExportar)
+    {
+        <div class="modal-backdrop fade show"></div>
+        <div class="modal d-block" tabindex="-1" style="display:block;">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Exportar Relatório CSV</h5>
+                        <button type="button" class="btn-close" aria-label="Close" @onclick="() => mostrarModalExportar = false"></button>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Categoria</label>
-                        <select class="form-select border-0 bg-light rounded-3 py-2" @bind="itemEdicao.Categoria">
-                            @if (itemEdicao.Tipo == "Entrada") {
-                                <option value="Dízimo">Dízimo</option><option value="Oferta">Oferta</option>
-                                <option value="Cantina">Cantina</option><option value="Outras Entradas">Outras Entradas</option>
-                            } else {
-                                <option value="Conta de Luz">Conta de Luz</option><option value="Conta de Água">Conta de Água</option>
-                                <option value="Aluguel">Aluguel</option><option value="Manutenção">Manutenção</option>
-                                <option value="Outras Saídas">Outras Saídas</option>
+                    <div class="modal-body">
+                        <p class="small text-muted">Selecione as colunas que deseja incluir no arquivo CSV.</p>
+                        <div class="row g-2">
+                            @foreach (var col in colunasExportacao)
+                            {
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="chk_@col.Key" checked="@col.Value" @onchange="@(e => colunasExportacao[col.Key] = (bool)e.Value)" />
+                                        <label class="form-check-label" for="chk_@col.Key">@col.Key</label>
+                                    </div>
+                                </div>
                             }
-                        </select>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Motivo da Alteração</label>
-                        <textarea class="form-control border-0 bg-light rounded-3" rows="2" @bind="justificativaAdm"></textarea>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @onclick="() => mostrarModalExportar = false">Cancelar</button>
+                        <button class="btn btn-primary" @onclick="GerarCSVPersonalizado">Exportar CSV</button>
                     </div>
-                </div>
-                <div class="modal-footer border-0 p-4">
-                    <button class="btn btn-link text-muted text-decoration-none" @onclick="() => mostrarModal = false">Cancelar</button>
-                    <button class="btn btn-dark rounded-pill px-4 shadow-sm" @onclick="SalvarAlteracao">Salvar Alterações</button>
                 </div>
             </div>
         </div>
-    </div>
-}
-
-<style>
-    .rounded-4 { border-radius: 1rem !important; }
-</style>
+    }
 
 @code {
     private List<Congregacao> listaCongregacoes = new();
     private List<Lancamento> listaLancamentos = new();
-    private bool carregando = false;
-    private int idUnidadeFiltro = 0;
-    private DateTime dataInicio = DateTime.Now.AddDays(-30);
-    private DateTime dataFim = DateTime.Now;
-    private string tipoSelecionado = ""; 
-
-    private bool mostrarModal = false;
+    private bool carregando = false, mostrarModal = false, mostrarModalExportar = false;
+    private int idUnidadeFiltro = 0, consultaSelecionada = 0;
+    private DateTime dataInicio = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1), dataFim = DateTime.Today;
+    private string tipoSelecionado = "", justificativaAdm = "";
+    private decimal totalEntradas, totalSaidas, saldoLiquido;
     private Lancamento itemEdicao = new();
-    private string justificativaAdm = "";
+    private Dictionary<string, bool> colunasExportacao = new() { { "Data", true }, { "Unidade", true }, { "Tipo", true }, { "Categoria", true }, { "Descrição", true }, { "Forma", true }, { "Valor", true }, { "Status", true } };
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync() {
+        listaCongregacoes = await Db.Congregacoes.OrderBy(c => c.Nome).ToListAsync();
+        await CarregarDados();
+    }
+
+    private async Task OnConsultaChanged(ChangeEventArgs e)
     {
-        listaCongregacoes = await Db.Congregacoes.ToListAsync();
+        consultaSelecionada = int.Parse(e.Value?.ToString() ?? "0");
+        
+        
+        if (consultaSelecionada != 2 && consultaSelecionada != 3) 
+        {
+            idUnidadeFiltro = 0;
+        }
+
         await CarregarDados();
     }
 
     private async Task CarregarDados()
     {
         carregando = true;
-        
-        IQueryable<Lancamento> query = Db.Lancamentos
-            .Include(x => x.Congregacao)
-            .Where(x => x.DataEvento >= dataInicio && x.DataEvento <= dataFim);
+        IQueryable<Lancamento> query = Db.Lancamentos.Include(x => x.Congregacao).Where(x => x.DataEvento >= dataInicio && x.DataEvento <= dataFim);
 
-        if (idUnidadeFiltro > 0)
+        // --- LÓGICA DE VISÕES ---
+        switch (consultaSelecionada)
+        {
+            case 0: // CONSOLIDADO
+                query = query.Where(x => 
+                    (x.Tipo == "Entrada" && x.Congregacao.EhMatriz) || 
+                    (x.Tipo == "Saida" && x.Categoria != "Repasse Matriz")
+                );
+                break;
+
+            case 1: // MATRIZ
+                query = query.Where(x => 
+                    x.Congregacao.EhMatriz && 
+                    x.Categoria != "Repasse Recebido" && 
+                    x.Categoria != "Repasse Matriz"
+                );
+                break;
+
+            case 2: // CONGREGAÇÕES 
+                query = query.Where(x => 
+                    !x.Congregacao.EhMatriz && 
+                    x.Categoria != "Repasse Matriz" && 
+                    x.Categoria != "Repasse Recebido"
+                );
+                break;
+
+            case 3: // 🔄 AUDITORIA (Só repasses)
+                query = query.Where(x => x.Categoria == "Repasse Matriz" || x.Categoria == "Repasse Recebido");
+                break;
+        }
+
+        // Filtro de Unidade para Campo e Auditoria
+        if (idUnidadeFiltro > 0 && (consultaSelecionada == 2 || consultaSelecionada == 3))
+        {
             query = query.Where(x => x.CongregacaoId == idUnidadeFiltro);
+        }
 
-        if (!string.IsNullOrEmpty(tipoSelecionado))
-            query = query.Where(x => x.Tipo == tipoSelecionado);
+        if (!string.IsNullOrEmpty(tipoSelecionado)) query = query.Where(x => x.Tipo == tipoSelecionado);
+        if (consultaSelecionada != 3) query = query.Where(x => !((x.Categoria == "Repasse Matriz" || x.Categoria == "Repasse Recebido") && (x.RepasseStatus == null || x.RepasseStatus == "Pendente")));
 
         listaLancamentos = await query.OrderByDescending(x => x.DataEvento).ToListAsync();
+
+        // --- CÁLCULO DOS TOTAIS ---
+        totalEntradas = listaLancamentos.Where(x => x.Tipo == "Entrada").Sum(x => x.Valor);
+        totalSaidas = listaLancamentos.Where(x => x.Tipo == "Saida" && x.Categoria != "Repasse Matriz").Sum(x => x.Valor);
+        saldoLiquido = totalEntradas - totalSaidas;
         
         carregando = false;
     }
 
-    private string GetIconForma(string? forma) => forma switch
-    {
-        "Pix" => "bi-qr-code",
-        "Dinheiro" => "bi-cash-stack",
-        "Cartão" => "bi-credit-card",
-        "Boleto" => "bi-file-earmark-text",
-        "Transferência" => "bi-bank",
-        _ => "bi-wallet2"
-    };
-
-    private void IniciarEdicao(Lancamento item)
-    {
-        itemEdicao = item;
-        justificativaAdm = "";
-        mostrarModal = true;
+    private string GetIconForma(string? forma) => forma switch { "PIX" => "bi-qr-code", "Dinheiro" => "bi-cash-stack", "Cartão" => "bi-credit-card", "Boleto" => "bi-file-earmark-text", "Transferência" => "bi-bank", _ => "bi-wallet2" };
+    
+    private void IniciarEdicao(Lancamento item) { 
+        itemEdicao = item; 
+        justificativaAdm = ""; 
+        mostrarModal = true; 
     }
 
-    private async Task SalvarAlteracao()
-    {
-        if (itemEdicao != null)
-        {
-            itemEdicao.Descricao += $" [Editado por Admin: {justificativaAdm} em {DateTime.Now:dd/MM}]";
+    private async Task SalvarAlteracao() {
+        if (itemEdicao != null) {
+            itemEdicao.Descricao += $" [Adm: {justificativaAdm} {DateTime.Now:dd/MM}]";
             Db.Lancamentos.Update(itemEdicao);
             await Db.SaveChangesAsync();
             mostrarModal = false;
             await CarregarDados();
-            await JS.InvokeVoidAsync("alert", "Lançamento atualizado com sucesso!");
+            await JS.InvokeVoidAsync("alert", "Sucesso!");
         }
+    }
+
+    private async Task GerarCSVPersonalizado() {
+        if (!listaLancamentos.Any()) return;
+        try {
+            var builder = new StringBuilder();
+            var cabecalho = new List<string>();
+            foreach (var col in colunasExportacao.Where(c => c.Value)) { cabecalho.Add(col.Key); }
+            builder.AppendLine(string.Join(";", cabecalho));
+
+            foreach (var item in listaLancamentos) {
+                var linha = new List<string>();
+                if (colunasExportacao["Data"]) linha.Add(item.DataEvento.ToString("dd/MM/yyyy"));
+                if (colunasExportacao["Unidade"]) linha.Add(item.Congregacao?.Nome ?? "N/A");
+                if (colunasExportacao["Tipo"]) linha.Add(item.Tipo);
+                if (colunasExportacao["Categoria"]) linha.Add(item.Categoria);
+                if (colunasExportacao["Descrição"]) linha.Add(item.Descricao?.Replace(";", ",").Replace("\n", " ") ?? "");
+                if (colunasExportacao["Forma"]) linha.Add(item.FormaPagamento ?? "");
+                if (colunasExportacao["Valor"]) linha.Add(item.Valor.ToString("F2"));
+                if (colunasExportacao["Status"]) linha.Add(item.Status);
+                builder.AppendLine(string.Join(";", linha));
+            }
+            await JS.InvokeVoidAsync("downloadFile", $"Relatorio_{DateTime.Now:ddMMyy}.csv", builder.ToString());
+        } catch { await JS.InvokeVoidAsync("alert", "Erro no Script"); }
+        finally { mostrarModalExportar = false; }
     }
 }
