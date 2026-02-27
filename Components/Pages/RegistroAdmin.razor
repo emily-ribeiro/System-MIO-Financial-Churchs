@@ -53,22 +53,22 @@
                         <option value="0">Visão Global (Consolidado)</option>
                         <option value="1">Gestão Matriz (Sede)</option>
                         <option value="2">Gestão Campo (Congregações)</option>
-                        <option value="3">Auditoria de Repasses (Fluxo)</option>
+                        <option value="3">Auditoria de Repasses</option>
                     </select>
                 </div>
 
                 @if (consultaSelecionada == 2 || consultaSelecionada == 3)
                 {
-                    <div class="col-md-3 animate__animated animate__fadeIn">
+                    <div class="col-md-2 animate__animated animate__fadeIn">
                         <label class="form-label small fw-bold text-muted">Congregação</label>
                         <select class="form-select border-0 bg-light rounded-3" @bind="idUnidadeFiltro">
-                            <option value="0">Todas as Unidades</option>
+                            <option value="0">Todas</option>
                             @foreach (var c in listaCongregacoes.Where(x => !x.EhMatriz)) { <option value="@c.Id">@c.Nome</option> }
                         </select>
                     </div>
                 }
 
-                <div class="@(consultaSelecionada == 2 || consultaSelecionada == 3 ? "col-md-2" : "col-md-3")">
+                <div class="col-md-2">
                     <label class="form-label small fw-bold text-muted">Tipo</label>
                     <select class="form-select border-0 bg-light rounded-3" @bind="tipoSelecionado">
                         <option value="">Todos</option>
@@ -77,7 +77,16 @@
                     </select>
                 </div>
 
-                <div class="@(consultaSelecionada == 2 || consultaSelecionada == 3 ? "col-md-3" : "col-md-5")">
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">Status</label>
+                    <select class="form-select border-0 bg-light rounded-3" @bind="statusSelecionado">
+                        <option value="">Todos</option>
+                        <option value="Aberto">Abertos</option>
+                        <option value="Fechado">Fechados</option>
+                    </select>
+                </div>
+
+                <div class="@(consultaSelecionada == 2 || consultaSelecionada == 3 ? "col-md-2" : "col-md-3")">
                     <label class="form-label small fw-bold text-muted">Período</label>
                     <div class="input-group">
                         <input type="date" class="form-control border-0 bg-light rounded-start-3" @bind="dataInicio" />
@@ -134,39 +143,55 @@
     }
 </div>
 
-@* --- MODAIS --- *@
-    @if (mostrarModalExportar)
-    {
-        <div class="modal-backdrop fade show"></div>
-        <div class="modal d-block" tabindex="-1" style="display:block;">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Exportar Relatório CSV</h5>
-                        <button type="button" class="btn-close" aria-label="Close" @onclick="() => mostrarModalExportar = false"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="small text-muted">Selecione as colunas que deseja incluir no arquivo CSV.</p>
-                        <div class="row g-2">
-                            @foreach (var col in colunasExportacao)
-                            {
-                                <div class="col-6">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="chk_@col.Key" checked="@col.Value" @onchange="@(e => colunasExportacao[col.Key] = (bool)e.Value)" />
-                                        <label class="form-check-label" for="chk_@col.Key">@col.Key</label>
-                                    </div>
-                                </div>
-                            }
+@* --- MODAL DE EXPORTAÇÃO --- *@
+@if (mostrarModalExportar)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal d-block" tabindex="-1" style="display:block;">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">Exportar Relatório CSV</h5>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="() => mostrarModalExportar = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="bg-light p-3 rounded-3 mb-4 d-flex justify-content-between align-items-center border-start border-4 border-primary">
+                        <div>
+                            <h6 class="mb-1 fw-bold text-dark">Filtro Inteligente de Repasses</h6>
+                            <p class="small text-muted mb-0">Ative para limpar o Excel e ver apenas o custo operacional real das igrejas.</p>
+                        </div>
+                        <div class="form-check form-switch fs-4 mb-0">
+                            <input class="form-check-input cursor-pointer" type="checkbox" id="checkIgnorarRepasses" @bind="ignorarRepasses">
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" @onclick="() => mostrarModalExportar = false">Cancelar</button>
-                        <button class="btn btn-primary" @onclick="GerarCSVPersonalizado">Exportar CSV</button>
+
+                    <p class="small text-muted fw-bold text-uppercase">Selecione as Colunas:</p>
+                    <div class="row g-2">
+                        @foreach (var col in colunasExportacao)
+                        {
+                            <div class="col-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chk_@col.Key" checked="@col.Value" @onchange="@(e => colunasExportacao[col.Key] = (bool)e.Value)" />
+                                    <label class="form-check-label" for="chk_@col.Key">@col.Key</label>
+                                </div>
+                            </div>
+                        }
                     </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button class="btn btn-link text-muted text-decoration-none" @onclick="() => mostrarModalExportar = false">Cancelar</button>
+                    <button class="btn btn-success px-4 rounded-pill fw-bold shadow-sm" @onclick="GerarCSVPersonalizado">
+                        <i class="bi bi-download me-2"></i>Baixar Planilha
+                    </button>
                 </div>
             </div>
         </div>
-    }
+    </div>
+}
+
+<style>
+    .cursor-pointer { cursor: pointer; }
+</style>
 
 @code {
     private List<Congregacao> listaCongregacoes = new();
@@ -174,9 +199,12 @@
     private bool carregando = false, mostrarModal = false, mostrarModalExportar = false;
     private int idUnidadeFiltro = 0, consultaSelecionada = 0;
     private DateTime dataInicio = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1), dataFim = DateTime.Today;
-    private string tipoSelecionado = "", justificativaAdm = "";
+    private string tipoSelecionado = "", statusSelecionado = "", justificativaAdm = "";
     private decimal totalEntradas, totalSaidas, saldoLiquido;
     private Lancamento itemEdicao = new();
+    
+    private bool ignorarRepasses = true; 
+    
     private Dictionary<string, bool> colunasExportacao = new() { { "Data", true }, { "Unidade", true }, { "Tipo", true }, { "Categoria", true }, { "Descrição", true }, { "Forma", true }, { "Valor", true }, { "Status", true } };
 
     protected override async Task OnInitializedAsync() {
@@ -187,7 +215,6 @@
     private async Task OnConsultaChanged(ChangeEventArgs e)
     {
         consultaSelecionada = int.Parse(e.Value?.ToString() ?? "0");
-        
         
         if (consultaSelecionada != 2 && consultaSelecionada != 3) 
         {
@@ -221,11 +248,8 @@
                 break;
 
             case 2: // CONGREGAÇÕES 
-                query = query.Where(x => 
-                    !x.Congregacao.EhMatriz && 
-                    x.Categoria != "Repasse Matriz" && 
-                    x.Categoria != "Repasse Recebido"
-                );
+                // 🌟 REMOVIDO o bloqueio de repasses: Agora eles aparecem na tabela do campo
+                query = query.Where(x => !x.Congregacao.EhMatriz);
                 break;
 
             case 3: // 🔄 AUDITORIA (Só repasses)
@@ -233,21 +257,29 @@
                 break;
         }
 
-        // Filtro de Unidade para Campo e Auditoria
+        // Filtros de UI
         if (idUnidadeFiltro > 0 && (consultaSelecionada == 2 || consultaSelecionada == 3))
         {
             query = query.Where(x => x.CongregacaoId == idUnidadeFiltro);
         }
 
         if (!string.IsNullOrEmpty(tipoSelecionado)) query = query.Where(x => x.Tipo == tipoSelecionado);
+        
+        if (!string.IsNullOrEmpty(statusSelecionado)) query = query.Where(x => x.Status == statusSelecionado);
+
         if (consultaSelecionada != 3) query = query.Where(x => !((x.Categoria == "Repasse Matriz" || x.Categoria == "Repasse Recebido") && (x.RepasseStatus == null || x.RepasseStatus == "Pendente")));
 
         listaLancamentos = await query.OrderByDescending(x => x.DataEvento).ToListAsync();
 
         // --- CÁLCULO DOS TOTAIS ---
         totalEntradas = listaLancamentos.Where(x => x.Tipo == "Entrada").Sum(x => x.Valor);
+        
+        // Saídas Operacionais
         totalSaidas = listaLancamentos.Where(x => x.Tipo == "Saida" && x.Categoria != "Repasse Matriz").Sum(x => x.Valor);
-        saldoLiquido = totalEntradas - totalSaidas;
+        
+        // 🌟 NOVA LÓGICA DE SALDO: Subtrai os repasses para o caixa zerar
+        decimal totalRepassesFeitos = listaLancamentos.Where(x => x.Categoria == "Repasse Matriz").Sum(x => x.Valor);
+        saldoLiquido = totalEntradas - totalSaidas - totalRepassesFeitos;
         
         carregando = false;
     }
@@ -279,7 +311,14 @@
             foreach (var col in colunasExportacao.Where(c => c.Value)) { cabecalho.Add(col.Key); }
             builder.AppendLine(string.Join(";", cabecalho));
 
-            foreach (var item in listaLancamentos) {
+            var listaExportacao = listaLancamentos.AsEnumerable();
+            
+            if (ignorarRepasses)
+            {
+                listaExportacao = listaExportacao.Where(x => x.Categoria != "Repasse Matriz" && x.Categoria != "Repasse Recebido");
+            }
+
+            foreach (var item in listaExportacao) {
                 var linha = new List<string>();
                 if (colunasExportacao["Data"]) linha.Add(item.DataEvento.ToString("dd/MM/yyyy"));
                 if (colunasExportacao["Unidade"]) linha.Add(item.Congregacao?.Nome ?? "N/A");

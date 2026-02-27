@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace SistemaIgreja.Migrations
 {
     /// <inheritdoc />
-    public partial class BancoInicialLimpo : Migration
+    public partial class BancoDoZeroTotal : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

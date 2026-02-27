@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SistemaIgreja.Data;
 
@@ -10,9 +11,11 @@ using SistemaIgreja.Data;
 namespace SistemaIgreja.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260227123359_BancoDoZeroTotal")]
+    partial class BancoDoZeroTotal
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
@@ -77,9 +80,6 @@ namespace SistemaIgreja.Migrations
 
                     b.Property<string>("Tipo")
                         .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("UsuarioEmail")
                         .HasColumnType("TEXT");
 
                     b.Property<decimal>("Valor")

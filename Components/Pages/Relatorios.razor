@@ -7,8 +7,8 @@
 
 <PageTitle>Relatórios Gerenciais</PageTitle>
 
-<div class="container mt-4 pb-5" style="max-width: 1100px;">
-    @*CABEÇALHO*@
+<div class="container mt-4 pb-5" style="max-width: 1200px;">
+    @* --- CABEÇALHO --- *@
     <div class="d-flex align-items-center mb-4">
         <div class="bg-primary text-white rounded-3 p-2 me-3 shadow-sm">
             <i class="bi bi-graph-up-arrow fs-4"></i>
@@ -16,7 +16,7 @@
         <h2 class="mb-0 fw-light">Painel <span class="fw-bold">Financeiro</span></h2>
     </div>
 
-    @*FILTROS*@
+    @* --- FILTROS --- *@
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-4">
             <div class="row g-3 align-items-end">
@@ -64,31 +64,37 @@
             @(idUnidadeSelecionada == 0 ? " • Consolidado de todas as unidades" : "")
         </div>
 
-        @*CARDS DE RESUMO (KPIs)*@
-        <div class="row g-4 mb-4">
-            <div class="col-md-4">
-                <div class="p-4 bg-white rounded-4 shadow-sm border-bottom border-success border-4 h-100 transition-hover">
-                    <div class="small text-uppercase fw-bold text-muted mb-2 ls-1">Entradas</div>
-                    <div class="h3 mb-0 fw-bold text-success">R$ @totalEntradas.ToString("N2")</div>
+        @* --- CARDS DE RESUMO (KPIs) --- *@
+        <div class="row g-3 mb-4 animate__animated animate__fadeIn">
+            <div class="col-md-3">
+                <div class="p-3 bg-white rounded-4 shadow-sm border-bottom border-success border-4 h-100 transition-hover">
+                    <div class="small text-uppercase fw-bold text-muted mb-2 ls-1" style="font-size: 0.7rem;">Entradas</div>
+                    <div class="h4 mb-0 fw-bold text-success">R$ @totalEntradas.ToString("N2")</div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="p-4 bg-white rounded-4 shadow-sm border-bottom border-danger border-4 h-100 transition-hover">
-                    <div class="small text-uppercase fw-bold text-muted mb-2 ls-1">Saídas</div>
-                    <div class="h3 mb-0 fw-bold text-danger">R$ @totalSaidas.ToString("N2")</div>
+            <div class="col-md-3">
+                <div class="p-3 bg-white rounded-4 shadow-sm border-bottom border-danger border-4 h-100 transition-hover">
+                    <div class="small text-uppercase fw-bold text-muted mb-2 ls-1" style="font-size: 0.7rem;">Saídas Operacionais</div>
+                    <div class="h4 mb-0 fw-bold text-danger">R$ @totalSaidas.ToString("N2")</div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="p-4 bg-white rounded-4 shadow-sm border-bottom @(saldoLiquido >= 0 ? "border-primary" : "border-warning") border-4 h-100 transition-hover">
-                    <div class="small text-uppercase fw-bold text-muted mb-2 ls-1">Saldo Líquido</div>
-                    <div class="h3 mb-0 fw-bold @(saldoLiquido >= 0 ? "text-primary" : "text-warning")">R$ @saldoLiquido.ToString("N2")</div>
+            <div class="col-md-3">
+                <div class="p-3 bg-white rounded-4 shadow-sm border-bottom border-primary border-4 h-100 transition-hover">
+                    <div class="small text-uppercase fw-bold text-muted mb-2 ls-1" style="font-size: 0.7rem;">Repasses p/ Sede</div>
+                    <div class="h4 mb-0 fw-bold text-primary">R$ @totalRepasses.ToString("N2")</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="p-3 bg-dark text-white rounded-4 shadow-sm h-100 transition-hover">
+                    <div class="small text-uppercase fw-bold opacity-75 mb-2 ls-1" style="font-size: 0.7rem;">Saldo da Congregação</div>
+                    <div class="h4 mb-0 fw-bold">R$ @saldoLiquido.ToString("N2")</div>
                 </div>
             </div>
         </div>
 
-        @*GRÁFICOS*@
+        @* --- GRÁFICOS DE CATEGORIAS --- *@
         <div class="row g-4">
-            @* Saídas *@
+            @* Saídas Operacionais *@
             <div class="col-md-6">
                 <div class="card border-0 shadow-sm rounded-4 h-100">
                     <div class="card-body p-4">
@@ -96,12 +102,12 @@
                             <div class="bg-danger-subtle text-danger rounded-circle p-2 me-2">
                                 <i class="bi bi-arrow-down-right"></i>
                             </div>
-                            <h5 class="mb-0 fw-bold">Distribuição de Saídas</h5>
+                            <h5 class="mb-0 fw-bold">Despesas Operacionais</h5>
                         </div>
 
                         @if (!saidasPorCategoria.Any())
                         {
-                            <p class="text-muted small italic">Nenhuma saída registrada.</p>
+                            <p class="text-muted small italic">Nenhuma despesa operacional registrada.</p>
                         }
                         else
                         {
@@ -165,7 +171,7 @@
     .rounded-4 { border-radius: 1rem !important; }
     .ls-1 { letter-spacing: 0.5px; }
     .italic { font-style: italic; }
-    .transition-hover { transition: transform 0.2s ease, shadow 0.2s ease; cursor: default; }
+    .transition-hover { transition: transform 0.2s ease; }
     .transition-hover:hover { transform: translateY(-3px); }
     .bg-success-subtle { background-color: #d1e7dd; }
     .bg-danger-subtle { background-color: #f8d7da; }
@@ -178,9 +184,14 @@
     private int anoSelecionado = DateTime.Now.Year;
     private bool carregando = false;
     private bool relatorioGerado = false;
+    
     private decimal totalEntradas = 0;
     private decimal totalSaidas = 0;
-    private decimal saldoLiquido => totalEntradas - totalSaidas;
+    private decimal totalRepasses = 0;
+
+    //O saldo despesas E repasses
+    private decimal saldoLiquido => totalEntradas - totalSaidas - totalRepasses;
+
     private List<ResumoCategoria> entradasPorCategoria = new();
     private List<ResumoCategoria> saidasPorCategoria = new();
 
@@ -202,20 +213,37 @@
     private async Task GerarRelatorio() {
         carregando = true;
         relatorioGerado = false;
+
         var queryMes = Db.Lancamentos
             .Where(x => x.DataEvento.Month == mesSelecionado && 
                         x.DataEvento.Year == anoSelecionado &&
                         x.Status != "Agendado");
+
         if (idUnidadeSelecionada > 0) queryMes = queryMes.Where(x => x.CongregacaoId == idUnidadeSelecionada);
+
         var lancamentosMes = await queryMes.ToListAsync();
+
+        // 1. Soma de todas as entradas
         totalEntradas = lancamentosMes.Where(x => x.Tipo == "Entrada").Sum(x => x.Valor);
-        totalSaidas = lancamentosMes.Where(x => x.Tipo == "Saida").Sum(x => x.Valor);
-        entradasPorCategoria = lancamentosMes.Where(x => x.Tipo == "Entrada").GroupBy(x => x.Categoria)
+        
+        // 2. Soma de saídas operacionais (Luz, Aluguel, etc - Ignora Repasses)
+        totalSaidas = lancamentosMes.Where(x => x.Tipo == "Saida" && x.Categoria != "Repasse Matriz").Sum(x => x.Valor);
+        
+        // 3. Soma estrita de repasses enviados para a Sede
+        totalRepasses = lancamentosMes.Where(x => x.Categoria == "Repasse Matriz").Sum(x => x.Valor);
+
+        // Agrupamento para os gráficos de Entrada
+        entradasPorCategoria = lancamentosMes.Where(x => x.Tipo == "Entrada")
+            .GroupBy(x => x.Categoria)
             .Select(g => new ResumoCategoria { Categoria = g.Key, Valor = g.Sum(x => x.Valor) })
             .OrderByDescending(x => x.Valor).ToList();
-        saidasPorCategoria = lancamentosMes.Where(x => x.Tipo == "Saida").GroupBy(x => x.Categoria)
+
+        // Agrupamento para o gráfico de Saídas (Focando no custo da unidade)
+        saidasPorCategoria = lancamentosMes.Where(x => x.Tipo == "Saida" && x.Categoria != "Repasse Matriz")
+            .GroupBy(x => x.Categoria)
             .Select(g => new ResumoCategoria { Categoria = g.Key, Valor = g.Sum(x => x.Valor) })
             .OrderByDescending(x => x.Valor).ToList();
+
         carregando = false;
         relatorioGerado = true;
     }

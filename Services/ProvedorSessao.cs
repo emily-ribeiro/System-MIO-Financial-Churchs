@@ -35,9 +35,7 @@ public class ProvedorSessao : AuthenticationStateProvider
                 return new AuthenticationState(_anonimo);
             }
 
-            // Atualiza a memória fotográfica com a congregação
             _usuarioEmMemoria = CriarPrincipal(usuario);
-
             return new AuthenticationState(_usuarioEmMemoria);
         }
         catch
@@ -46,33 +44,34 @@ public class ProvedorSessao : AuthenticationStateProvider
         }
     }
 
-    public async Task Entrar(Usuario usuario)
+    // TRAVA 1: Aceita o usuário e já verifica se ele não é nulo antes de prosseguir
+    public async Task Entrar(Usuario? usuario)
     {
-        _logger?.LogInformation("Entrar: storing session for {email}", usuario?.Email);
+        if (usuario == null) return; // Se vier nulo da tela de login, aborta em segurança
+
+        _logger?.LogInformation("Entrar: storing session for {email}", usuario.Email);
         try
         {
             await _storage.SetAsync("sessao_igreja", usuario);
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Entrar: falha ao gravar sessao_igreja em ProtectedLocalStorage.");
-            // Continuar: manter sessão em memória mesmo se storage falhar
+            _logger?.LogError(ex, "Entrar: falha ao gravar sessao_igreja.");
         }
 
-        // Atualiza a memória fotográfica com a congregação
         _usuarioEmMemoria = CriarPrincipal(usuario);
-
         NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(_usuarioEmMemoria)));
     }
 
-    //ele transforma o objeto Usuario em um ClaimsPrincipal, que é o que o Blazor usa para controle de acesso.
+    // TRAVA 2: Proteção total contra ArgumentNullException
     private ClaimsPrincipal CriarPrincipal(Usuario usuario)
     {
         var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.Name, usuario.Nome),
-            new Claim(ClaimTypes.Email, usuario.Email),
-            new Claim(ClaimTypes.Role, usuario.Perfil),
+            // O operador ?? garante que, se o dado for nulo, ele não quebra a aplicação
+            new Claim(ClaimTypes.Name, usuario.Nome ?? "Usuário Sem Nome"),
+            new Claim(ClaimTypes.Email, usuario.Email ?? "sem-email@igreja.com"),
+            new Claim(ClaimTypes.Role, usuario.Perfil ?? "Tesoureiro"),
             new Claim("CongregacaoId", usuario.CongregacaoId?.ToString() ?? "0")
         };
 
@@ -82,14 +81,14 @@ public class ProvedorSessao : AuthenticationStateProvider
 
     public async Task Sair()
     {
-        _logger?.LogInformation("Sair: clearing session and notifying anonymous state.");
+        _logger?.LogInformation("Sair: clearing session.");
         try
         {
             await _storage.DeleteAsync("sessao_igreja");
         }
         catch (Exception ex)
         {
-            _logger?.LogWarning(ex, "Sair: erro ao deletar sessao_igreja do ProtectedLocalStorage.");
+            _logger?.LogWarning(ex, "Sair: erro ao deletar sessao_igreja.");
         }
         _usuarioEmMemoria = null;
         NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(_anonimo)));

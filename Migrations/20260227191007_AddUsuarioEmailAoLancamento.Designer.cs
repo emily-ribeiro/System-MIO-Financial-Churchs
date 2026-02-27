@@ -11,8 +11,8 @@ using SistemaIgreja.Data;
 namespace SistemaIgreja.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260227002621_BancoInicialLimpo")]
-    partial class BancoInicialLimpo
+    [Migration("20260227191007_AddUsuarioEmailAoLancamento")]
+    partial class AddUsuarioEmailAoLancamento
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -80,6 +80,9 @@ namespace SistemaIgreja.Migrations
 
                     b.Property<string>("Tipo")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UsuarioEmail")
                         .HasColumnType("TEXT");
 
                     b.Property<decimal>("Valor")

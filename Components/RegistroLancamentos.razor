@@ -16,6 +16,36 @@
         <span class="badge bg-secondary p-2 shadow-sm">Unidade: @nomeMinhaCongregacao</span>
     </div>
 
+    @* CARDS DE TOTAIS *@
+    <div class="col-md-4">
+        <div class="card border-0 border-start border-success border-4 shadow-sm bg-white">
+            <div class="card-body">
+                <h6 class="text-muted small mb-1 text-uppercase fw-bold">Entradas</h6>
+                <h4 class="fw-bold text-success mb-0">R$ @totalEntradas.ToString("N2")</h4>
+            </div>
+        </div>
+    </div>
+
+    @* Card de Saídas (Sem Repasses) *@
+    <div class="col-md-4">
+        <div class="card border-0 border-start border-danger border-4 shadow-sm bg-white">
+            <div class="card-body">
+                <h6 class="text-muted small mb-1 text-uppercase fw-bold">Despesas da Congregação</h6>
+                <h4 class="fw-bold text-danger mb-0">R$ @totalSaidas.ToString("N2")</h4>
+            </div>
+        </div>
+    </div>
+
+    @* Card de Repasses (Separado) *@
+    <div class="col-md-4">
+        <div class="card border-0 border-start border-primary border-4 shadow-sm bg-white">
+            <div class="card-body">
+                <h6 class="text-muted small mb-1 text-uppercase fw-bold">Repasses para SEDE</h6>
+                <h4 class="fw-bold text-primary mb-0">R$ @totalRepasses.ToString("N2")</h4>
+            </div>
+        </div>
+    </div>
+
     @if (carregando)
     {
         <div class="text-center py-5">
@@ -56,7 +86,6 @@
                                         <th>Categoria</th>
                                         <th>Descrição</th>
                                         <th>Valor</th>
-                                        
                                         <th class="text-center">Status</th>
                                         <th class="text-center">Forma de Pagamento</th>
                                         <th class="text-center pe-4">Ação</th>
@@ -77,7 +106,7 @@
                                             <td data-label="Status" class="text-center">
                                                 <span class="badge @(l.Status == "Solicitado Ajuste" ? "bg-warning text-dark" : "bg-info text-dark")">@l.Status</span>
                                             </td>
-                                            <td class="text-center pe-md-4">
+                                            <td class="text-center">
                                                 <span class="badge bg-secondary">@l.FormaPagamento</span>
                                             </td>
                                             <td class="text-center pe-md-4">
@@ -122,11 +151,19 @@
 }
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
     private IEnumerable<IGrouping<DateTime, Lancamento>> gruposLancamentos = new List<IGrouping<DateTime, Lancamento>>();
     private List<DateTime> datasExpandidas = new();
     private bool carregando = true;
     private int minhaCongregacaoId = 0;
-    private string nomeMinhaCongregacao = "";
+    private string nomeMinhaCongregacao = "Carregando...";
+
+    // Variáveis para os totais
+    private decimal totalEntradas = 0;
+    private decimal totalSaidas = 0;
+    private decimal totalRepasses = 0;
 
     private bool exibirModalAjuste = false;
     private string justificativaAjuste = "";
@@ -134,30 +171,58 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthProvider.GetAuthenticationStateAsync();
-        var email = authState.User.Identity?.Name;
-        var usuario = await Db.Usuarios.FirstOrDefaultAsync(u => u.Email == email);
-        
-        if (usuario != null && usuario.CongregacaoId.HasValue)
+        try 
         {
-            minhaCongregacaoId = usuario.CongregacaoId.Value;
-            var cong = await Db.Congregacoes.FindAsync(minhaCongregacaoId);
-            nomeMinhaCongregacao = cong?.Nome ?? "";
-        }
+            var authState = await AuthStateTask;
+            var user = authState.User;
+            var email = user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+            
+            var usuario = await Db.Usuarios.FirstOrDefaultAsync(u => u.Email == email);
+            
+            if (usuario != null && usuario.CongregacaoId.HasValue)
+            {
+                minhaCongregacaoId = usuario.CongregacaoId.Value;
+                var cong = await Db.Congregacoes.FindAsync(minhaCongregacaoId);
+                nomeMinhaCongregacao = cong?.Nome ?? "Unidade não encontrada";
+            }
 
-        await CarregarLancamentos();
-        if (gruposLancamentos.Any()) datasExpandidas.Add(gruposLancamentos.First().Key);
+            await CarregarLancamentos();
+            
+            if (gruposLancamentos.Any()) 
+                datasExpandidas.Add(gruposLancamentos.First().Key);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao carregar: {ex.Message}");
+        }
+        finally
+        {
+            carregando = false;
+        }
     }
 
     private async Task CarregarLancamentos()
     {
-        carregando = true;
-        var lancamentos = await Db.Lancamentos
-            .Where(x => x.CongregacaoId == minhaCongregacaoId && x.Status != "Fechado")
-            .OrderByDescending(x => x.DataEvento).ToListAsync();
-        
-        gruposLancamentos = lancamentos.GroupBy(x => x.DataEvento.Date);
-        carregando = false;
+    if (minhaCongregacaoId == 0) return;
+
+    var lancamentos = await Db.Lancamentos
+        .Where(x => x.CongregacaoId == minhaCongregacaoId && x.Status != "Fechado")
+        .OrderByDescending(x => x.DataEvento)
+        .ToListAsync();
+
+    totalEntradas = lancamentos
+        .Where(x => x.Tipo == "Entrada" && x.Categoria != "Repasse Recebido")
+        .Sum(x => x.Valor);
+
+    totalSaidas = lancamentos
+        .Where(x => x.Tipo == "Saida" && x.Categoria != "Repasse Matriz")
+        .Sum(x => x.Valor);
+
+    totalRepasses = lancamentos
+        .Where(x => x.Categoria == "Repasse Matriz")
+        .Sum(x => x.Valor);
+
+    gruposLancamentos = lancamentos.GroupBy(x => x.DataEvento.Date);
     }
 
     private void AlternarGrupo(DateTime data)
