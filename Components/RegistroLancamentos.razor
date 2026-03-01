@@ -16,32 +16,34 @@
         <span class="badge bg-secondary p-2 shadow-sm">Unidade: @nomeMinhaCongregacao</span>
     </div>
 
-    @* CARDS DE TOTAIS *@
-    <div class="col-md-4">
-        <div class="card border-0 border-start border-success border-4 shadow-sm bg-white">
-            <div class="card-body">
-                <h6 class="text-muted small mb-1 text-uppercase fw-bold">Entradas</h6>
-                <h4 class="fw-bold text-success mb-0">R$ @totalEntradas.ToString("N2")</h4>
+    <div class="row g-3 mb-4">
+        @* CARDS DE TOTAIS *@
+        <div class="col-md-4">
+            <div class="card border-0 border-start border-success border-4 shadow-sm bg-white">
+                <div class="card-body">
+                    <h6 class="text-muted small mb-1 text-uppercase fw-bold">Entradas</h6>
+                    <h4 class="fw-bold text-success mb-0">R$ @totalEntradas.ToString("N2")</h4>
+                </div>
             </div>
         </div>
-    </div>
 
-    @* Card de Saídas (Sem Repasses) *@
-    <div class="col-md-4">
-        <div class="card border-0 border-start border-danger border-4 shadow-sm bg-white">
-            <div class="card-body">
-                <h6 class="text-muted small mb-1 text-uppercase fw-bold">Despesas da Congregação</h6>
-                <h4 class="fw-bold text-danger mb-0">R$ @totalSaidas.ToString("N2")</h4>
+        @* Card de Saídas (Sem Repasses) *@
+        <div class="col-md-4">
+            <div class="card border-0 border-start border-danger border-4 shadow-sm bg-white">
+                <div class="card-body">
+                    <h6 class="text-muted small mb-1 text-uppercase fw-bold">Despesas da Congregação</h6>
+                    <h4 class="fw-bold text-danger mb-0">R$ @totalSaidas.ToString("N2")</h4>
+                </div>
             </div>
         </div>
-    </div>
 
-    @* Card de Repasses (Separado) *@
-    <div class="col-md-4">
-        <div class="card border-0 border-start border-primary border-4 shadow-sm bg-white">
-            <div class="card-body">
-                <h6 class="text-muted small mb-1 text-uppercase fw-bold">Repasses para SEDE</h6>
-                <h4 class="fw-bold text-primary mb-0">R$ @totalRepasses.ToString("N2")</h4>
+        @* Card de Repasses (Separado) *@
+        <div class="col-md-4">
+            <div class="card border-0 border-start border-primary border-4 shadow-sm bg-white">
+                <div class="card-body">
+                    <h6 class="text-muted small mb-1 text-uppercase fw-bold">Repasses para SEDE</h6>
+                    <h4 class="fw-bold text-primary mb-0">R$ @totalRepasses.ToString("N2")</h4>
+                </div>
             </div>
         </div>
     </div>
@@ -69,7 +71,7 @@
                 <div class="card-header bg-white py-3 border-bottom-0 cursor-pointer d-flex justify-content-between align-items-center" 
                      @onclick="() => AlternarGrupo(dataDia)">
                     <h5 class="mb-0 text-primary fw-bold">
-                        <i class="bi bi-calendar-event me-2"></i>@dataDia.ToLongDateString()
+                        <i class="bi bi-calendar-event me-2"></i>@dataDia.ToShortDateString()
                         <span class="badge bg-light text-primary border ms-2 small">@grupo.Count() itens</span>
                     </h5>
                     <i class="bi bi-chevron-down collapse-icon @(estaAberto ? "rotate-180" : "")"></i>
@@ -104,7 +106,7 @@
                                                 R$ @l.Valor.ToString("N2")
                                             </td>
                                             <td data-label="Status" class="text-center">
-                                                <span class="badge @(l.Status == "Solicitado Ajuste" ? "bg-warning text-dark" : "bg-info text-dark")">@l.Status</span>
+                                                <span class="badge @(l.Status == "Lance novamente" || l.Status == "Solicitado Ajuste" ? "bg-warning text-dark" : "bg-info text-dark")">@l.Status</span>
                                             </td>
                                             <td class="text-center">
                                                 <span class="badge bg-secondary">@l.FormaPagamento</span>
@@ -203,26 +205,27 @@
 
     private async Task CarregarLancamentos()
     {
-    if (minhaCongregacaoId == 0) return;
+        if (minhaCongregacaoId == 0) return;
 
-    var lancamentos = await Db.Lancamentos
-        .Where(x => x.CongregacaoId == minhaCongregacaoId && x.Status != "Fechado")
-        .OrderByDescending(x => x.DataEvento)
-        .ToListAsync();
+        var lancamentos = await Db.Lancamentos
+            .Where(x => x.CongregacaoId == minhaCongregacaoId && x.Status != "Fechado")
+            .OrderByDescending(x => x.DataEvento)
+            .ToListAsync();
 
-    totalEntradas = lancamentos
-        .Where(x => x.Tipo == "Entrada" && x.Categoria != "Repasse Recebido")
-        .Sum(x => x.Valor);
+        totalEntradas = lancamentos
+            .Where(x => x.Tipo == "Entrada" && x.Categoria != "Repasse Recebido")
+            .Sum(x => x.Valor);
 
-    totalSaidas = lancamentos
-        .Where(x => x.Tipo == "Saida" && x.Categoria != "Repasse Matriz")
-        .Sum(x => x.Valor);
+        totalSaidas = lancamentos
+            .Where(x => x.Tipo == "Saida" && x.Categoria != "Repasse Matriz")
+            .Sum(x => x.Valor);
 
-    totalRepasses = lancamentos
-        .Where(x => x.Categoria == "Repasse Matriz")
-        .Sum(x => x.Valor);
+        // 🌟 CORREÇÃO DE QA AQUI: Ignora os repasses devolvidos pela Sede
+        totalRepasses = lancamentos
+            .Where(x => x.Categoria == "Repasse Matriz" && x.Status != "Lance novamente")
+            .Sum(x => x.Valor);
 
-    gruposLancamentos = lancamentos.GroupBy(x => x.DataEvento.Date);
+        gruposLancamentos = lancamentos.GroupBy(x => x.DataEvento.Date);
     }
 
     private void AlternarGrupo(DateTime data)

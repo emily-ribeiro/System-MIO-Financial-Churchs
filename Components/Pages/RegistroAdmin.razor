@@ -132,7 +132,13 @@
                                 <td class="@(item.Tipo == "Entrada" ? "text-success" : "text-danger") fw-bold">R$ @item.Valor.ToString("N2")</td>
                                 <td class="text-center"><span class="badge rounded-pill @(item.Status == "Fechado" ? "bg-success" : "bg-warning text-dark")">@item.Status</span></td>
                                 <td class="text-end pe-4">
-                                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3" @onclick="() => IniciarEdicao(item)"><i class="bi bi-pencil"></i></button>
+                                    @* 🌟 BOTÕES ATUALIZADOS AQUI *@
+                                    <button class="btn btn-sm btn-outline-primary rounded-circle me-1" title="Editar" @onclick="() => IniciarEdicao(item)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger rounded-circle" title="Excluir" @onclick="() => Excluir(item)">
+                                        <i class="bi bi-trash3"></i>
+                                    </button>
                                 </td>
                             </tr>
                         }
@@ -142,6 +148,36 @@
         </div>
     }
 </div>
+
+@* 🌟 MODAL DE EDIÇÃO INSERIDO AQUI *@
+@if (mostrarModal)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal d-block" tabindex="-1" style="display:block;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="fw-bold">Ajuste do Administrador</h5>
+                    <button type="button" class="btn-close" @onclick="() => mostrarModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Valor Correto (R$)</label>
+                        <input type="number" step="0.01" class="form-control bg-light border-0 rounded-3" @bind="itemEdicao.Valor" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Justificativa da Edição</label>
+                        <textarea class="form-control bg-light border-0 rounded-3" rows="2" @bind="justificativaAdm" placeholder="Ex: Correção de erro de digitação da congregação..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button class="btn btn-link text-muted text-decoration-none small" @onclick="() => mostrarModal = false">Cancelar</button>
+                    <button class="btn btn-dark px-4 rounded-pill fw-bold" @onclick="SalvarAlteracao">Salvar Alteração</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @* --- MODAL DE EXPORTAÇÃO --- *@
 @if (mostrarModalExportar)
@@ -229,7 +265,6 @@
         carregando = true;
         IQueryable<Lancamento> query = Db.Lancamentos.Include(x => x.Congregacao).Where(x => x.DataEvento >= dataInicio && x.DataEvento <= dataFim);
 
-        // --- LÓGICA DE VISÕES ---
         switch (consultaSelecionada)
         {
             case 0: // CONSOLIDADO
@@ -248,36 +283,27 @@
                 break;
 
             case 2: // CONGREGAÇÕES 
-                // 🌟 REMOVIDO o bloqueio de repasses: Agora eles aparecem na tabela do campo
                 query = query.Where(x => !x.Congregacao.EhMatriz);
                 break;
 
-            case 3: // 🔄 AUDITORIA (Só repasses)
+            case 3: // AUDITORIA
                 query = query.Where(x => x.Categoria == "Repasse Matriz" || x.Categoria == "Repasse Recebido");
                 break;
         }
 
-        // Filtros de UI
         if (idUnidadeFiltro > 0 && (consultaSelecionada == 2 || consultaSelecionada == 3))
         {
             query = query.Where(x => x.CongregacaoId == idUnidadeFiltro);
         }
 
         if (!string.IsNullOrEmpty(tipoSelecionado)) query = query.Where(x => x.Tipo == tipoSelecionado);
-        
         if (!string.IsNullOrEmpty(statusSelecionado)) query = query.Where(x => x.Status == statusSelecionado);
-
         if (consultaSelecionada != 3) query = query.Where(x => !((x.Categoria == "Repasse Matriz" || x.Categoria == "Repasse Recebido") && (x.RepasseStatus == null || x.RepasseStatus == "Pendente")));
 
         listaLancamentos = await query.OrderByDescending(x => x.DataEvento).ToListAsync();
 
-        // --- CÁLCULO DOS TOTAIS ---
         totalEntradas = listaLancamentos.Where(x => x.Tipo == "Entrada").Sum(x => x.Valor);
-        
-        // Saídas Operacionais
         totalSaidas = listaLancamentos.Where(x => x.Tipo == "Saida" && x.Categoria != "Repasse Matriz").Sum(x => x.Valor);
-        
-        // 🌟 NOVA LÓGICA DE SALDO: Subtrai os repasses para o caixa zerar
         decimal totalRepassesFeitos = listaLancamentos.Where(x => x.Categoria == "Repasse Matriz").Sum(x => x.Valor);
         saldoLiquido = totalEntradas - totalSaidas - totalRepassesFeitos;
         
@@ -300,6 +326,33 @@
             mostrarModal = false;
             await CarregarDados();
             await JS.InvokeVoidAsync("alert", "Sucesso!");
+        }
+    }
+
+    // 🌟 FUNÇÃO DE EXCLUIR INSERIDA AQUI
+    private async Task Excluir(Lancamento item)
+    {
+        bool confirm = await JS.InvokeAsync<bool>("confirm", $"Deseja realmente EXCLUIR o lançamento de R$ {item.Valor:N2} ({item.Categoria})?");
+        
+        if (confirm)
+        {
+            if (!string.IsNullOrEmpty(item.CodTransferencia))
+            {
+                var vinculados = await Db.Lancamentos.Where(x => x.CodTransferencia == item.CodTransferencia).ToListAsync();
+                Db.Lancamentos.RemoveRange(vinculados);
+            }
+            else
+            {
+                Db.Lancamentos.Remove(item);
+            }
+            
+            await Db.SaveChangesAsync();
+            await CarregarDados();
+            
+            StateHasChanged();
+            await Task.Delay(100);
+            
+            await JS.InvokeVoidAsync("alert", "Lançamento excluído com sucesso!");
         }
     }
 

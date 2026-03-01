@@ -5,7 +5,7 @@
 @inject AppDbContext Db
 @rendermode InteractiveServer
 
-<PageTitle>Relatórios Gerenciais</PageTitle>
+<PageTitle>Painel Financeiro</PageTitle>
 
 <div class="container mt-4 pb-5" style="max-width: 1200px;">
     @* --- CABEÇALHO --- *@
@@ -23,7 +23,7 @@
                 <div class="col-md-5">
                     <label class="form-label small fw-bold text-muted">Congregação</label>
                     <select class="form-select border-0 bg-light rounded-3" @bind="idUnidadeSelecionada">
-                        <option value="0">Todas as Congregações (Visão Geral)</option>
+                        <option value="0">Todas as Congregações (Exceto Sede)</option>
                         @foreach (var c in listaCongregacoes)
                         {
                             <option value="@c.Id">@c.Nome</option>
@@ -61,7 +61,7 @@
         <div class="small text-muted mb-3 ms-1">
             <i class="bi bi-info-circle me-1"></i> 
             Exibindo dados de <strong>@ObterNomeMes(mesSelecionado) / @anoSelecionado</strong>
-            @(idUnidadeSelecionada == 0 ? " • Consolidado de todas as unidades" : "")
+            @(idUnidadeSelecionada == 0 ? " • Consolidado (Sede Excluída)" : "")
         </div>
 
         @* --- CARDS DE RESUMO (KPIs) --- *@
@@ -80,29 +80,30 @@
             </div>
             <div class="col-md-3">
                 <div class="p-3 bg-white rounded-4 shadow-sm border-bottom border-primary border-4 h-100 transition-hover">
-                    <div class="small text-uppercase fw-bold text-muted mb-2 ls-1" style="font-size: 0.7rem;">Repasses p/ Sede</div>
+                    <div class="small text-uppercase fw-bold text-muted mb-2 ls-1" style="font-size: 0.7rem;">Repasses Realizados</div>
                     <div class="h4 mb-0 fw-bold text-primary">R$ @totalRepasses.ToString("N2")</div>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="p-3 bg-dark text-white rounded-4 shadow-sm h-100 transition-hover">
-                    <div class="small text-uppercase fw-bold opacity-75 mb-2 ls-1" style="font-size: 0.7rem;">Saldo da Congregação</div>
+                    <div class="small text-uppercase fw-bold opacity-75 mb-2 ls-1" style="font-size: 0.7rem;">Saldo p/ Repassar</div>
                     <div class="h4 mb-0 fw-bold">R$ @saldoLiquido.ToString("N2")</div>
                 </div>
             </div>
         </div>
 
-        @* --- GRÁFICOS DE CATEGORIAS --- *@
-        <div class="row g-4">
-            @* Saídas Operacionais *@
-            <div class="col-md-6">
+        @* --- GRÁFICOS (3 COLUNAS) --- *@
+        <div class="row g-4 animate__animated animate__fadeInUp">
+            
+            @* 1. Saídas Operacionais *@
+            <div class="col-lg-4 col-md-12">
                 <div class="card border-0 shadow-sm rounded-4 h-100">
                     <div class="card-body p-4">
                         <div class="d-flex align-items-center mb-4">
                             <div class="bg-danger-subtle text-danger rounded-circle p-2 me-2">
                                 <i class="bi bi-arrow-down-right"></i>
                             </div>
-                            <h5 class="mb-0 fw-bold">Despesas Operacionais</h5>
+                            <h5 class="mb-0 fw-bold">Despesas</h5>
                         </div>
 
                         @if (!saidasPorCategoria.Any())
@@ -117,7 +118,7 @@
                                 <div class="mb-4">
                                     <div class="d-flex justify-content-between small mb-1">
                                         <span class="fw-bold text-dark">@cat.Categoria</span>
-                                        <span class="text-muted">R$ @cat.Valor.ToString("N2") (@percentual.ToString("0.0")%)</span>
+                                        <span class="text-muted">R$ @cat.Valor.ToString("N2")</span>
                                     </div>
                                     <div class="progress rounded-pill" style="height: 6px;">
                                         <div class="progress-bar bg-danger" role="progressbar" style="width: @percentual.ToString(System.Globalization.CultureInfo.InvariantCulture)%"></div>
@@ -129,15 +130,15 @@
                 </div>
             </div>
 
-            @* Entradas *@
-            <div class="col-md-6">
+            @* 2. Entradas *@
+            <div class="col-lg-4 col-md-12">
                 <div class="card border-0 shadow-sm rounded-4 h-100">
                     <div class="card-body p-4">
                         <div class="d-flex align-items-center mb-4">
                             <div class="bg-success-subtle text-success rounded-circle p-2 me-2">
                                 <i class="bi bi-arrow-up-right"></i>
                             </div>
-                            <h5 class="mb-0 fw-bold">Origem de Entradas</h5>
+                            <h5 class="mb-0 fw-bold">Entradas</h5>
                         </div>
 
                         @if (!entradasPorCategoria.Any())
@@ -152,7 +153,7 @@
                                 <div class="mb-4">
                                     <div class="d-flex justify-content-between small mb-1">
                                         <span class="fw-bold text-dark">@cat.Categoria</span>
-                                        <span class="text-muted">R$ @cat.Valor.ToString("N2") (@percentual.ToString("0.0")%)</span>
+                                        <span class="text-muted">R$ @cat.Valor.ToString("N2")</span>
                                     </div>
                                     <div class="progress rounded-pill" style="height: 6px;">
                                         <div class="progress-bar bg-success" role="progressbar" style="width: @percentual.ToString(System.Globalization.CultureInfo.InvariantCulture)%"></div>
@@ -163,6 +164,44 @@
                     </div>
                 </div>
             </div>
+
+            @* 3. Formas de Pagamento (Entradas Reais) *@
+            <div class="col-lg-4 col-md-12">
+                <div class="card border-0 shadow-sm rounded-4 h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center mb-4">
+                            <div class="bg-primary-subtle text-primary rounded-circle p-2 me-2">
+                                <i class="bi bi-wallet2"></i>
+                            </div>
+                            <h5 class="mb-0 fw-bold">Formas de Pagamento</h5>
+                        </div>
+
+                        @if (!entradasPorForma.Any())
+                        {
+                            <p class="text-muted small italic">Dados indisponíveis.</p>
+                        }
+                        else
+                        {
+                            var totalPagamentos = entradasPorForma.Sum(x => x.Valor); 
+                            
+                            @foreach (var forma in entradasPorForma)
+                            {
+                                var percentual = totalPagamentos > 0 ? (forma.Valor / totalPagamentos) * 100 : 0;
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between small mb-1">
+                                        <span class="fw-bold text-dark">@(string.IsNullOrEmpty(forma.Categoria) ? "Não Informado" : forma.Categoria)</span>
+                                        <span class="text-muted">R$ @forma.Valor.ToString("N2") (@percentual.ToString("0.0")%)</span>
+                                    </div>
+                                    <div class="progress rounded-pill" style="height: 6px;">
+                                        <div class="progress-bar bg-primary" role="progressbar" style="width: @percentual.ToString(System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
         </div>
     }
 </div>
@@ -175,6 +214,7 @@
     .transition-hover:hover { transform: translateY(-3px); }
     .bg-success-subtle { background-color: #d1e7dd; }
     .bg-danger-subtle { background-color: #f8d7da; }
+    .bg-primary-subtle { background-color: #cfe2ff; }
 </style>
 
 @code {
@@ -189,11 +229,11 @@
     private decimal totalSaidas = 0;
     private decimal totalRepasses = 0;
 
-    //O saldo despesas E repasses
     private decimal saldoLiquido => totalEntradas - totalSaidas - totalRepasses;
 
     private List<ResumoCategoria> entradasPorCategoria = new();
     private List<ResumoCategoria> saidasPorCategoria = new();
+    private List<ResumoCategoria> entradasPorForma = new();
 
     public class ResumoCategoria {
         public string Categoria { get; set; } = "";
@@ -214,34 +254,46 @@
         carregando = true;
         relatorioGerado = false;
 
+        DateTime primeiroDiaDoMes = new DateTime(anoSelecionado, mesSelecionado, 1);
+        DateTime ultimoDiaDoMes = primeiroDiaDoMes.AddMonths(1).AddDays(-1);
+
         var queryMes = Db.Lancamentos
-            .Where(x => x.DataEvento.Month == mesSelecionado && 
-                        x.DataEvento.Year == anoSelecionado &&
+            .Include(x => x.Congregacao)
+            .Where(x => x.DataEvento.Date >= primeiroDiaDoMes.Date && 
+                        x.DataEvento.Date <= ultimoDiaDoMes.Date &&
                         x.Status != "Agendado");
 
-        if (idUnidadeSelecionada > 0) queryMes = queryMes.Where(x => x.CongregacaoId == idUnidadeSelecionada);
+        if (idUnidadeSelecionada > 0) 
+        {
+            queryMes = queryMes.Where(x => x.CongregacaoId == idUnidadeSelecionada);
+        }
+        else
+        {
+            queryMes = queryMes.Where(x => !x.Congregacao.EhMatriz);
+        }
 
         var lancamentosMes = await queryMes.ToListAsync();
 
-        // 1. Soma de todas as entradas
         totalEntradas = lancamentosMes.Where(x => x.Tipo == "Entrada").Sum(x => x.Valor);
         
-        // 2. Soma de saídas operacionais (Luz, Aluguel, etc - Ignora Repasses)
-        totalSaidas = lancamentosMes.Where(x => x.Tipo == "Saida" && x.Categoria != "Repasse Matriz").Sum(x => x.Valor);
-        
-        // 3. Soma estrita de repasses enviados para a Sede
-        totalRepasses = lancamentosMes.Where(x => x.Categoria == "Repasse Matriz").Sum(x => x.Valor);
-
-        // Agrupamento para os gráficos de Entrada
         entradasPorCategoria = lancamentosMes.Where(x => x.Tipo == "Entrada")
             .GroupBy(x => x.Categoria)
-            .Select(g => new ResumoCategoria { Categoria = g.Key, Valor = g.Sum(x => x.Valor) })
+            .Select(g => new ResumoCategoria { Categoria = g.Key ?? "Outros", Valor = g.Sum(x => x.Valor) })
             .OrderByDescending(x => x.Valor).ToList();
 
-        // Agrupamento para o gráfico de Saídas (Focando no custo da unidade)
+        totalSaidas = lancamentosMes.Where(x => x.Tipo == "Saida" && x.Categoria != "Repasse Matriz").Sum(x => x.Valor);
+        totalRepasses = lancamentosMes.Where(x => x.Categoria == "Repasse Matriz").Sum(x => x.Valor);
+
         saidasPorCategoria = lancamentosMes.Where(x => x.Tipo == "Saida" && x.Categoria != "Repasse Matriz")
             .GroupBy(x => x.Categoria)
-            .Select(g => new ResumoCategoria { Categoria = g.Key, Valor = g.Sum(x => x.Valor) })
+            .Select(g => new ResumoCategoria { Categoria = g.Key ?? "Outros", Valor = g.Sum(x => x.Valor) })
+            .OrderByDescending(x => x.Valor).ToList();
+
+        // 🌟 CORREÇÃO QA: Removendo o Repasse Recebido das Formas de Pagamento
+        entradasPorForma = lancamentosMes
+            .Where(x => x.Tipo == "Entrada" && x.Categoria != "Repasse Recebido")
+            .GroupBy(x => x.FormaPagamento)
+            .Select(g => new ResumoCategoria { Categoria = g.Key ?? "Não Informado", Valor = g.Sum(x => x.Valor) })
             .OrderByDescending(x => x.Valor).ToList();
 
         carregando = false;

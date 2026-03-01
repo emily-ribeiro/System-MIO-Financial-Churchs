@@ -58,31 +58,39 @@
     }
     else if (movimentosAgrupados != null && movimentosAgrupados.Any())
     {
-        @* --- RESUMO GERAL --- *@
-        <div class="row g-3 mb-4 animate__animated animate__fadeIn">
-            <div class="col-md-3">
+        @* --- RESUMO GERAL (AGORA COM 5 COLUNAS) --- *@
+        <div class="row row-cols-1 row-cols-md-5 g-3 mb-4 animate__animated animate__fadeIn">
+            <div class="col">
                 <div class="p-3 bg-white rounded-4 shadow-sm border-start border-success border-4 h-100">
                     <div class="small text-muted mb-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Total Entradas</div>
                     <div class="h4 mb-0 fw-bold text-success">R$ @totalEntradasGeral.ToString("N2")</div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col">
                 <div class="p-3 bg-white rounded-4 shadow-sm border-start border-danger border-4 h-100">
                     <div class="small text-muted mb-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Saídas Operacionais</div>
                     <div class="h4 mb-0 fw-bold text-danger">R$ @totalSaidasGeral.ToString("N2")</div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col">
+                <div class="p-3 bg-white rounded-4 shadow-sm border-start border-info border-4 h-100">
+                    <div class="small text-muted mb-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Resultado Operacional</div>
+                    <div class="h4 mb-0 fw-bold text-info">R$ @resultadoOperacional.ToString("N2")</div>
+                </div>
+            </div>
+            <div class="col">
                 <div class="p-3 bg-white rounded-4 shadow-sm border-start border-primary border-4 h-100">
                     <div class="small text-muted mb-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Repasses Já Feitos</div>
                     <div class="h4 mb-0 fw-bold text-primary">R$ @totalRepassesGeral.ToString("N2")</div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col">
                 <div class="p-3 bg-dark text-white rounded-4 shadow-sm h-100">
-                    @* 🌟 AVISO DE QA: Deixando claro que esse valor vai subir para a Sede *@
-                    <div class="small mb-1 text-uppercase fw-bold opacity-75 text-warning" style="font-size: 0.7rem;">Saldo a Repassar (Zerar Caixa)</div>
-                    <div class="h4 mb-0 fw-bold">R$ @saldoGeral.ToString("N2")</div>
+                    @* 🌟 CORREÇÃO QA: Se for a Sede, mostra Saldo em Caixa em vez de Saldo a Repassar *@
+                    <div class="small mb-1 text-uppercase fw-bold opacity-75 @(isMatrizSelecionada ? "text-success" : "text-warning")" style="font-size: 0.7rem;">
+                        @(isMatrizSelecionada ? "Saldo em Caixa (Sede)" : "Saldo a Repassar")
+                    </div>
+                    <div class="h4 mb-0 fw-bold">R$ @(isMatrizSelecionada ? resultadoOperacional.ToString("N2") : saldoGeral.ToString("N2"))</div>
                 </div>
             </div>
         </div>
@@ -160,7 +168,8 @@
         }
 
         <div class="mt-5 text-center">
-            @if (saldoGeral > 0)
+            @* 🌟 Só mostra o alerta de repasse se NÃO for a Sede e tiver saldo *@
+            @if (saldoGeral > 0 && !isMatrizSelecionada)
             {
                 <div class="alert alert-warning border-0 small mb-3 d-inline-block rounded-pill px-4 fw-bold">
                     <i class="bi bi-info-circle me-2"></i> 
@@ -170,7 +179,7 @@
             <br />
             <button class="btn btn-primary btn-lg px-5 rounded-pill shadow-lg fw-bold" 
                     disabled="@(!PodeFecharTudo)" @onclick="FinalizarFechamento">
-                <i class="bi bi-check2-all me-2"></i>Finalizar Auditoria e Zerar Caixa
+                <i class="bi bi-check2-all me-2"></i>Finalizar Auditoria 
             </button>
         </div>
     }
@@ -233,10 +242,14 @@
     private int mesSelecionado = DateTime.Now.Month;
     private int anoSelecionado = DateTime.Now.Year;
     private bool carregando = false;
+    
+    // Flag inteligente para saber se é a Sede
+    private bool isMatrizSelecionada = false;
 
     private decimal totalEntradasGeral = 0;
     private decimal totalSaidasGeral = 0;
     private decimal totalRepassesGeral = 0;
+    private decimal resultadoOperacional = 0;
     private decimal saldoGeral = 0;
 
     private bool exibirModalAjuste = false;
@@ -247,15 +260,6 @@
     private bool PodeFecharTudo => movimentosAgrupados.Any() && 
                                   diasRevisados.Count == movimentosAgrupados.Count && 
                                   !movimentosAgrupados.SelectMany(g => g).Any(i => i.Status == "Solicitado Ajuste");
-
-    private string GetIconForma(string? forma) => forma switch
-    {
-        "Pix" => "bi-qr-code",
-        "Dinheiro" => "bi-cash-stack",
-        "Cartão" => "bi-credit-card",
-        "Transferência" => "bi-bank",
-        _ => "bi-wallet2"
-    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -268,19 +272,28 @@
         carregando = true;
         diasRevisados.Clear();
         
+        // Verifica se a unidade selecionada é a Matriz
+        var congreSelecionada = listaCongregacoes.FirstOrDefault(c => c.Id == idUnidadeSelecionada);
+        isMatrizSelecionada = congreSelecionada != null && congreSelecionada.EhMatriz;
+        
+        DateTime primeiroDia = new DateTime(anoSelecionado, mesSelecionado, 1);
+        DateTime ultimoDia = primeiroDia.AddMonths(1).AddDays(-1);
+
         var lista = await Db.Lancamentos
             .Where(x => x.CongregacaoId == idUnidadeSelecionada && 
                         x.Status != "Fechado" && 
-                        x.DataEvento.Month == mesSelecionado &&
-                        x.DataEvento.Year == anoSelecionado)
+                        x.DataEvento.Date >= primeiroDia.Date &&
+                        x.DataEvento.Date <= ultimoDia.Date)
             .OrderBy(x => x.DataEvento).ToListAsync();
 
         totalEntradasGeral = lista.Where(x => x.Tipo == "Entrada").Sum(x => x.Valor);
         totalSaidasGeral = lista.Where(x => x.Tipo == "Saida" && x.Categoria != "Repasse Matriz").Sum(x => x.Valor);
         totalRepassesGeral = lista.Where(x => x.Categoria == "Repasse Matriz").Sum(x => x.Valor);
         
-        // Saldo real que sobrou
-        saldoGeral = totalEntradasGeral - totalSaidasGeral - totalRepassesGeral;
+        resultadoOperacional = totalEntradasGeral - totalSaidasGeral;
+
+        // Se for Matriz, não tem saldo a repassar. Se não, calcula normalmente.
+        saldoGeral = isMatrizSelecionada ? 0 : resultadoOperacional - totalRepassesGeral;
 
         movimentosAgrupados = lista.GroupBy(x => x.DataEvento.Date).ToList();
         carregando = false;
@@ -327,14 +340,13 @@
 
     private async Task FinalizarFechamento()
     {
-        // 🌟 LÓGICA DE QA: ZERAR O CAIXA AUTOMATICAMENTE
-        if (saldoGeral > 0)
+        // 🌟 Só cria repasse automático se tiver saldo E se NÃO for a Sede
+        if (saldoGeral > 0 && !isMatrizSelecionada)
         {
             string codVinculo = "REP-AUTO-" + Guid.NewGuid().ToString().Substring(0, 5).ToUpper();
             int ultimoDiaMes = DateTime.DaysInMonth(anoSelecionado, mesSelecionado);
             DateTime dataFechamento = new DateTime(anoSelecionado, mesSelecionado, ultimoDiaMes);
 
-            // 1. Gera a Saída fechando o caixa da congregação
             Db.Lancamentos.Add(new Lancamento {
                 CongregacaoId = idUnidadeSelecionada,
                 DataEvento = dataFechamento,
@@ -347,7 +359,6 @@
                 Status = "Fechado"
             });
 
-            // 2. Gera a Entrada Pendente para a Sede aprovar
             Db.Lancamentos.Add(new Lancamento {
                 CongregacaoId = 1, // ID da Sede/Matriz
                 DataEvento = dataFechamento,
@@ -362,7 +373,6 @@
             });
         }
 
-        // 3. Tranca todos os lançamentos que foram revisados
         foreach (var grupo in movimentosAgrupados)
         {
             foreach (var item in grupo)
@@ -374,18 +384,18 @@
 
         await Db.SaveChangesAsync();
         
-        string msgAlerta = saldoGeral > 0 
-            ? $"Auditoria Finalizada! O mês foi trancado e o saldo restante (R$ {saldoGeral:N2}) foi enviado para a Sede." 
+        string msgAlerta = (saldoGeral > 0 && !isMatrizSelecionada)
+            ? $"Auditoria Finalizada! O mês foi trancado e o saldo restante (R$ {saldoGeral:N2}) foi enviado para a Sede a ser confirmado na tela de Gestão de Repasses." 
             : "Auditoria Finalizada! O mês foi trancado com sucesso.";
             
         await JS.InvokeVoidAsync("alert", msgAlerta);
         
-        // Limpa a tela
         movimentosAgrupados.Clear();
         diasRevisados.Clear();
         totalEntradasGeral = 0;
         totalSaidasGeral = 0;
         totalRepassesGeral = 0;
+        resultadoOperacional = 0;
         saldoGeral = 0;
     }
 }

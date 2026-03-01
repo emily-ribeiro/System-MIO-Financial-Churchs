@@ -43,7 +43,6 @@
                         <label class="form-label fw-bold">Congregação</label>
                         @if (isAdmin)
                         {
-                            @* 🌟 CORREÇÃO ADMIN: Agora com o bind:after para atualizar o histórico ao trocar a unidade *@
                             <select class="form-select border-primary" @bind="lancamento.CongregacaoId" @bind:after="AtualizarUltimosLancamentos">
                                 <option value="0">Selecione a Congregação...</option>
                                 @foreach (var c in listaCongregacoes) { <option value="@c.Id">@c.Nome</option> }
@@ -194,7 +193,6 @@
             var authState = await AuthStateTask;
             var user = authState.User;
             
-            // 🌟 CORREÇÃO 1: Definindo se é Admin de verdade
             isAdmin = user.IsInRole("Admin");
             emailLogado = user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? user.Identity?.Name;
 
@@ -206,7 +204,6 @@
                 var cong = await Db.Congregacoes.FindAsync(minhaCongregacaoId);
                 nomeMinhaCongregacao = cong?.Nome ?? "Unidade não encontrada";
                 
-                // Só trava a congregação se não for Admin
                 if (!isAdmin) lancamento.CongregacaoId = minhaCongregacaoId;
             }
 
@@ -227,7 +224,6 @@
     {
         if (string.IsNullOrEmpty(emailLogado)) return;
 
-        // Mostra apenas o que o usuário logado fez (Auditoria estrita)
         ultimosLancamentos = await Db.Lancamentos
             .Where(x => x.UsuarioEmail == emailLogado)
             .OrderByDescending(x => x.Id)
@@ -243,7 +239,12 @@
         if (lancamento.CongregacaoId <= 0) { mensagemErro = "Selecione uma Congregação."; return; }
         if (lancamento.Valor <= 0) { mensagemErro = "O valor deve ser maior que zero."; return; }
 
-        // Trava de Mês Fechado
+
+        // Verificar se o mês do lançamento já está fechado
+        DateTime primeiroDiaDoMes = new DateTime(lancamento.DataEvento.Year, lancamento.DataEvento.Month, 1);
+        DateTime ultimoDiaDoMes = primeiroDiaDoMes.AddMonths(1).AddDays(-1);
+
+        // Trava de Mês Fechado 
         bool mesEstaFechado = await Db.Lancamentos.AnyAsync(x => 
             x.CongregacaoId == lancamento.CongregacaoId && 
             x.Status == "Fechado" && 
@@ -252,20 +253,23 @@
 
         if (mesEstaFechado)
         {
-            mensagemErro = "⚠️ Este mês já foi fechado pelo administrador.";
+            mensagemErro = "Este mês já foi fechado pelo administrador.";
             return;
         }
 
         try
         {
-            // 🌟 CORREÇÃO 2: Carimbando o e-mail antes de salvar
             lancamento.UsuarioEmail = emailLogado;
 
             if (lancamento.Categoria == "Repasse Matriz")
             {
                 string codVinculo = "REP-" + Guid.NewGuid().ToString().Substring(0, 8).ToUpper();
-                lancamento.Status = "Fechado";
+                
+                
+                lancamento.Status = "Aguardando Fechamento";
+                lancamento.RepasseStatus = "Pendente";
                 lancamento.CodTransferencia = codVinculo;
+                
                 Db.Lancamentos.Add(lancamento);
 
                 // Entrada na Matriz
@@ -277,7 +281,8 @@
                     Valor = lancamento.Valor,
                     UsuarioEmail = emailLogado,
                     CodTransferencia = codVinculo,
-                    Status = "Aberto",
+                    RepasseStatus = "Pendente",
+                    Status = "Aguardando Fechamento", 
                     Descricao = $"Repasse de {nomeMinhaCongregacao}"
                 });
             }
@@ -291,7 +296,6 @@
             
             await AtualizarUltimosLancamentos();
 
-            // Reset mantendo a data e a unidade
             var dataM = lancamento.DataEvento;
             var congM = lancamento.CongregacaoId;
             lancamento = new Lancamento { DataEvento = dataM, CongregacaoId = congM, Status = "Aberto" };
