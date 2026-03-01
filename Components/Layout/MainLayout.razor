@@ -1,13 +1,19 @@
 ﻿@inherits LayoutComponentBase
 
 <div class="page">
-    <div class="sidebar">
+    @* Sidebar com sombra para destacar do fundo *@
+    <div class="sidebar shadow">
         <NavMenu />
     </div>
 
     <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+        @* Removemos o link "About" e deixamos uma top-row limpa ou oculta *@
+        <div class="top-row px-4 d-none d-md-flex">
+            <AuthorizeView>
+                <Authorized>
+                    <small class="text-muted">Usuário: <strong>@context.User.Identity?.Name</strong></small>
+                </Authorized>
+            </AuthorizeView>
         </div>
 
         <article class="content px-4">
@@ -16,8 +22,8 @@
     </main>
 </div>
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
+@* <div id="blazor-error-ui">
+    Ocorreu um erro inesperado.
+    <a href="" class="reload">Recarregar</a>
+    <a class="dismiss">🗙</a>
+</div> *@

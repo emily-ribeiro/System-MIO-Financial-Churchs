@@ -26,6 +26,9 @@ namespace SistemaIgreja.Migrations
                     b.Property<bool>("Ativo")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("EhMatriz")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -45,7 +48,10 @@ namespace SistemaIgreja.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("CongregacaoId")
+                    b.Property<string>("CodTransferencia")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CongregacaoId")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("DataEvento")
@@ -59,11 +65,11 @@ namespace SistemaIgreja.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("NomeCongregacao")
-                        .HasColumnType("TEXT");
-
                     b.Property<int>("Parcelas")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("RepasseStatus")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -73,10 +79,15 @@ namespace SistemaIgreja.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("UsuarioEmail")
+                        .HasColumnType("TEXT");
+
                     b.Property<decimal>("Valor")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CongregacaoId");
 
                     b.ToTable("Lancamentos");
                 });
@@ -112,6 +123,17 @@ namespace SistemaIgreja.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Usuarios");
+                });
+
+            modelBuilder.Entity("SistemaIgreja.Data.Lancamento", b =>
+                {
+                    b.HasOne("SistemaIgreja.Data.Congregacao", "Congregacao")
+                        .WithMany()
+                        .HasForeignKey("CongregacaoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Congregacao");
                 });
 #pragma warning restore 612, 618
         }

@@ -11,8 +11,8 @@ using SistemaIgreja.Data;
 namespace SistemaIgreja.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260223024344_AjusteLancamentoNomeCongregacao")]
-    partial class AjusteLancamentoNomeCongregacao
+    [Migration("20260227123359_BancoDoZeroTotal")]
+    partial class BancoDoZeroTotal
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,6 +24,12 @@ namespace SistemaIgreja.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("EhMatriz")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Nome")
@@ -41,6 +47,13 @@ namespace SistemaIgreja.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Categoria")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CodTransferencia")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("CongregacaoId")
                         .HasColumnType("INTEGER");
 
@@ -48,6 +61,20 @@ namespace SistemaIgreja.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FormaPagamento")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Parcelas")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RepasseStatus")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -60,6 +87,8 @@ namespace SistemaIgreja.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CongregacaoId");
+
                     b.ToTable("Lancamentos");
                 });
 
@@ -67,6 +96,12 @@ namespace SistemaIgreja.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("CongregacaoId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Email")
@@ -88,6 +123,17 @@ namespace SistemaIgreja.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Usuarios");
+                });
+
+            modelBuilder.Entity("SistemaIgreja.Data.Lancamento", b =>
+                {
+                    b.HasOne("SistemaIgreja.Data.Congregacao", "Congregacao")
+                        .WithMany()
+                        .HasForeignKey("CongregacaoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Congregacao");
                 });
 #pragma warning restore 612, 618
         }

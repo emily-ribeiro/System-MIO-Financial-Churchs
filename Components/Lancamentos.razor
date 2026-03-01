@@ -5,176 +5,230 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @inject AppDbContext Db
 @inject IJSRuntime JS
-@inject AuthenticationStateProvider AuthProvider
-@rendermode InteractiveServer
+@inject ILogger<Lancamentos> Logger
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>Novo Lançamento</PageTitle>
 
 <div class="container mt-4 pb-5">
     <h2 class="mb-4"><i class="bi bi-journal-plus me-2 text-primary"></i>Novo Lançamento</h2>
 
-    <div class="card shadow-sm border-0 bg-light animate__animated animate__fadeIn">
-        <div class="card-body p-4">
-            @if (!string.IsNullOrEmpty(mensagemErro))
-            {
-                <div class="alert alert-danger py-2 mb-4 animate__animated animate__shakeX">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i>@mensagemErro
-                </div>
-            }
-            @if (!string.IsNullOrEmpty(mensagemSucesso))
-            {
-                <div class="alert alert-success py-2 mb-4">
-                    <i class="bi bi-check-circle-fill me-2"></i>@mensagemSucesso
-                </div>
-            }
-
-            <div class="row g-3">
-                @* 1. CONGREGAÇÃO *@
-                <div class="col-md-6">
-                    <label class="form-label fw-bold">Congregação</label>
-                    @if (isAdmin)
-                    {
-                        <select class="form-select border-primary" @bind="lancamento.CongregacaoId">
-                            <option value="0">Selecione a Congregação...</option>
-                            @foreach (var c in listaCongregacoes) { <option value="@c.Id">@c.Nome</option> }
-                        </select>
-                    }
-                    else
-                    {
-                        <div class="input-group">
-                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-building"></i></span>
-                            <input type="text" class="form-control bg-white fw-bold text-primary border-start-0" value="@nomeMinhaCongregacao" disabled />
-                        </div>
-                    }
-                </div>
-
-                <div class="col-md-3">
-                    <label class="form-label fw-bold">Data do Evento</label>
-                    <input type="date" class="form-control" @bind="lancamento.DataEvento" />
-                </div>
-
-                <div class="col-md-3">
-                    <label class="form-label fw-bold">Tipo</label>
-                    <select class="form-select @(lancamento.Tipo == "Entrada" ? "text-success fw-bold" : "text-danger fw-bold")" @bind="lancamento.Tipo">
-                        <option value="">Selecione...</option>
-                        <option value="Entrada">Entrada (+)</option>
-                        <option value="Saida">Saída (-)</option>
-                    </select>
-                </div>
-
-                @* 2. CATEGORIA *@
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Categoria</label>
-                    <select class="form-select border-primary" @bind="lancamento.Categoria">
-                        <option value="">Selecione...</option>
-                        @if (lancamento.Tipo == "Entrada")
-                        {
-                            <option value="Dízimo">Dízimo</option>
-                            <option value="Oferta">Oferta</option>
-                            <option value="Cantina">Cantina</option>
-                            <option value="Outras Entradas">Outras Entradas</option>
-                        }
-                        else if (lancamento.Tipo == "Saida")
-                        {
-                            <option value="Conta de Luz">Conta de Luz</option>
-                            <option value="Conta de Água">Conta de Água</option>
-                            <option value="Aluguel">Aluguel</option>
-                            <option value="Internet">Internet</option>
-                            <option value="Manutenção">Manutenção</option>
-                            <option value="Outras Saídas">Outras Saídas</option>
-                        }
-                    </select>
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Forma de Pagamento</label>
-                    <select class="form-select" @bind="lancamento.FormaPagamento">
-                        <option value="">Selecione...</option>
-                        <option value="Dinheiro">Dinheiro Físico</option>
-                        <option value="PIX">PIX</option>
-                        <option value="Cartão">Cartão</option>
-                        @if (lancamento.Tipo == "Saida")
-                        {
-                            <option value="Boleto">Boleto</option>
-                            <option value="A Prazo (Parcelado)">A Prazo (Parcelado)</option>
-
-                        }
-                    </select>
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Valor (R$)</label>
-                    <input type="number" class="form-control" @bind="lancamento.Valor" />
-                </div>
-
-                @* 3. PARCELAMENTO (SAÍDA A PRAZO) *@
-                @if (lancamento.Tipo == "Saida" && lancamento.FormaPagamento == "A Prazo (Parcelado)"|| lancamento.FormaPagamento == "Boleto")
+    @if (carregando)
+    {
+        <div class="text-center my-5 animate__animated animate__fadeIn">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+            <p class="mt-3 fw-bold text-secondary">Carregando formulário...</p>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0 bg-light animate__animated animate__fadeIn">
+            <div class="card-body p-4">
+                @if (!string.IsNullOrEmpty(mensagemErro))
                 {
-                    <div class="col-12 animate__animated animate__fadeIn">
-                        <div class="card border-primary bg-white shadow-sm p-3">
-                            <label class="form-label fw-bold text-primary">Configurar Parcelamento em Cascata</label>
-                            <div class="d-flex align-items-center">
-                                <span class="me-2">Gerar este lançamento por</span>
-                                <input type="number" class="form-control text-center mx-2" style="width: 80px;" @bind="quantidadeParcelas" min="2" max="60" />
-                                <span>meses seguidos.</span>
-                            </div>
-                        </div>
+                    <div class="alert alert-danger py-2 mb-4 animate__animated animate__shakeX">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>@mensagemErro
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(mensagemSucesso))
+                {
+                    <div class="alert alert-success py-2 mb-4">
+                        <i class="bi bi-check-circle-fill me-2"></i>@mensagemSucesso
                     </div>
                 }
 
-                <div class="col-12">
-                    @* Mostra o aviso de OBRIGATÓRIO se for Outras Saídas OU Outras Entradas *@
-                    <label class="form-label fw-bold">
-                        Descrição / Observações 
-                        @if (lancamento.Categoria == "Outras Saídas" || lancamento.Categoria == "Outras Entradas" || lancamento.Categoria == "Manutenção")
+                <div class="row g-3">
+                    @* 1. CONGREGAÇÃO *@
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Congregação</label>
+                        @if (isAdmin)
                         {
-                            <span class="text-danger ms-1">(OBRIGATÓRIO)</span>
+                            <select class="form-select border-primary" @bind="lancamento.CongregacaoId" @bind:after="AtualizarUltimosLancamentos">
+                                <option value="0">Selecione a Congregação...</option>
+                                @foreach (var c in listaCongregacoes) { <option value="@c.Id">@c.Nome</option> }
+                            </select>
                         }
-                    </label>
-                    <textarea class="form-control" rows="2" @bind="lancamento.Descricao" placeholder="Descreva os detalhes aqui..."></textarea>
-                </div>
+                        else
+                        {
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-building"></i></span>
+                                <input type="text" class="form-control bg-white fw-bold text-primary border-start-0" value="@nomeMinhaCongregacao" disabled />
+                            </div>
+                        }
+                    </div>
 
-                <div class="col-12 text-end mt-4">
-                    <button class="btn btn-primary px-5 fw-bold shadow-sm" @onclick="Salvar">
-                        <i class="bi bi-save me-2"></i>Registrar Lançamento
-                    </button>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Data do Evento</label>
+                        <input type="date" class="form-control" @bind="lancamento.DataEvento" />
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Tipo</label>
+                        <select class="form-select @(lancamento.Tipo == "Entrada" ? "text-success fw-bold" : "text-danger fw-bold")" @bind="lancamento.Tipo">
+                            <option value="">Selecione...</option>
+                            <option value="Entrada">Entrada (+)</option>
+                            <option value="Saida">Saída (-)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Categoria</label>
+                        <select class="form-select border-primary" @bind="lancamento.Categoria" @bind:after="VerificarPreenchimentoAutomatico">
+                            <option value="">Selecione...</option>
+                            @if (lancamento.Tipo == "Entrada")
+                            {
+                                <option value="Dízimo">Dízimo</option>
+                                <option value="Oferta">Oferta</option>
+                                <option value="Cantina">Cantina</option>
+                                <option value="Outras Entradas">Outras Entradas</option>
+                            }
+                            else if (lancamento.Tipo == "Saida")
+                            {
+                                <option value="Repasse Matriz" class="fw-bold text-primary">📤 Repasse para SEDE</option>
+                                <option value="Conta de Luz">Conta de Luz</option>
+                                <option value="Conta de Água">Conta de Água</option>
+                                <option value="Aluguel">Aluguel</option>
+                                <option value="Internet">Internet</option>
+                                <option value="Manutenção">Manutenção</option>
+                                <option value="Outras Saídas">Outras Saídas</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Forma de Pagamento</label>
+                        <select class="form-select" @bind="lancamento.FormaPagamento">
+                            <option value="">Selecione...</option>
+                            <option value="Dinheiro">Dinheiro Físico</option>
+                            <option value="PIX">PIX</option>
+                            <option value="Cartão">Cartão</option>
+                            @if (lancamento.Tipo == "Saida")
+                            {
+                                <option value="Boleto">Boleto</option>
+                                <option value="A Prazo (Parcelado)">A Prazo (Parcelado)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Valor (R$)</label>
+                        <input type="number" step="0.01" class="form-control" @bind="lancamento.Valor" />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Descrição / Observações</label>
+                        <textarea class="form-control" rows="2" @bind="lancamento.Descricao" placeholder="Descreva os detalhes aqui..."></textarea>
+                    </div>
+
+                    <div class="col-12 text-end mt-4">
+                        <button class="btn btn-primary px-5 fw-bold shadow-sm" @onclick="Salvar">
+                            <i class="bi bi-save me-2"></i>Registrar Lançamento
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+
+        @* --- GRID DE ÚLTIMOS LANÇAMENTOS --- *@
+        <div class="mt-5 animate__animated animate__fadeIn">
+            <h5 class="text-secondary mb-3"><i class="bi bi-clock-history me-2"></i>Meus Últimos 5 Lançamentos</h5>
+            <div class="card shadow-sm border-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 text-center">
+                        <thead class="table-light">
+                            <tr class="small text-uppercase">
+                                <th class="ps-3 text-start">Data</th>
+                                <th>Tipo</th>
+                                <th>Categoria</th>
+                                <th>Valor</th>
+                                <th>Forma</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!ultimosLancamentos.Any())
+                            {
+                                <tr><td colspan="5" class="py-3 text-muted text-center">Nenhum lançamento recente encontrado para seu usuário.</td></tr>
+                            }
+                            else
+                            {
+                                @foreach (var ult in ultimosLancamentos)
+                                {
+                                    <tr>
+                                        <td class="ps-3 text-start">@ult.DataEvento.ToShortDateString()</td>
+                                        <td><span class="badge @(ult.Tipo == "Entrada" ? "bg-success" : "bg-danger")">@ult.Tipo</span></td>
+                                        <td class="fw-bold">@ult.Categoria</td>
+                                        <td class="fw-bold text-dark">R$ @ult.Valor.ToString("N2")</td>
+                                        <td><span class="badge bg-secondary">@ult.FormaPagamento</span></td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
     private Lancamento lancamento = new() { DataEvento = DateTime.Today, Status = "Aberto" };
     private List<Congregacao> listaCongregacoes = new();
+    private List<Lancamento> ultimosLancamentos = new();
+    private string? emailLogado;
     private string mensagemErro = "";
     private string mensagemSucesso = "";
     private int quantidadeParcelas = 2;
     private bool isAdmin = false;
     private int minhaCongregacaoId = 0;
     private string nomeMinhaCongregacao = "Carregando...";
+    private bool carregando = true;
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        isAdmin = user.IsInRole("Admin");
-
-        var emailUser = user.Identity?.Name;
-        var usuarioDb = await Db.Usuarios.FirstOrDefaultAsync(u => u.Email == emailUser);
-        
-        if (usuarioDb != null && usuarioDb.CongregacaoId.HasValue)
+        try 
         {
-            minhaCongregacaoId = usuarioDb.CongregacaoId.Value;
-            var cong = await Db.Congregacoes.FindAsync(minhaCongregacaoId);
-            nomeMinhaCongregacao = cong?.Nome ?? "Unidade não encontrada";
-            lancamento.CongregacaoId = minhaCongregacaoId;
-        }
+            var authState = await AuthStateTask;
+            var user = authState.User;
+            
+            isAdmin = user.IsInRole("Admin");
+            emailLogado = user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? user.Identity?.Name;
 
-        if (isAdmin) 
-        {
-            listaCongregacoes = await Db.Congregacoes.Where(c => c.Ativo).OrderBy(c => c.Nome).ToListAsync();
+            var usuarioDb = await Db.Usuarios.FirstOrDefaultAsync(u => u.Email == emailLogado);
+            
+            if (usuarioDb != null && usuarioDb.CongregacaoId.HasValue)
+            {
+                minhaCongregacaoId = usuarioDb.CongregacaoId.Value;
+                var cong = await Db.Congregacoes.FindAsync(minhaCongregacaoId);
+                nomeMinhaCongregacao = cong?.Nome ?? "Unidade não encontrada";
+                
+                if (!isAdmin) lancamento.CongregacaoId = minhaCongregacaoId;
+            }
+
+            if (isAdmin) 
+            {
+                listaCongregacoes = await Db.Congregacoes.Where(c => c.Ativo).OrderBy(c => c.Nome).ToListAsync();
+            }
+
+            await AtualizarUltimosLancamentos();
         }
+        finally
+        {
+            carregando = false;
+        }
+    }
+
+    private async Task AtualizarUltimosLancamentos()
+    {
+        if (string.IsNullOrEmpty(emailLogado)) return;
+
+        ultimosLancamentos = await Db.Lancamentos
+            .Where(x => x.UsuarioEmail == emailLogado)
+            .OrderByDescending(x => x.Id)
+            .Take(5)
+            .ToListAsync();
     }
 
     private async Task Salvar()
@@ -182,40 +236,55 @@
         mensagemErro = "";
         mensagemSucesso = "";
 
-        if (!isAdmin && (lancamento.CongregacaoId == 0 || lancamento.CongregacaoId == null))
-        {
-            mensagemErro = "Erro: Usuário sem vínculo com congregação válida.";
-            return;
-        }
-
-        // Descrição obrigatória para categorias genéricas de entrada ou saída
-        if ((lancamento.Categoria == "Outras Saídas" || lancamento.Categoria == "Outras Entradas") 
-            && string.IsNullOrWhiteSpace(lancamento.Descricao))
-        {
-            mensagemErro = $"Para '{lancamento.Categoria}', a descrição é obrigatória para fins de auditoria.";
-            return;
-        }
-
+        if (lancamento.CongregacaoId <= 0) { mensagemErro = "Selecione uma Congregação."; return; }
         if (lancamento.Valor <= 0) { mensagemErro = "O valor deve ser maior que zero."; return; }
+
+
+        // Verificar se o mês do lançamento já está fechado
+        DateTime primeiroDiaDoMes = new DateTime(lancamento.DataEvento.Year, lancamento.DataEvento.Month, 1);
+        DateTime ultimoDiaDoMes = primeiroDiaDoMes.AddMonths(1).AddDays(-1);
+
+        // Trava de Mês Fechado 
+        bool mesEstaFechado = await Db.Lancamentos.AnyAsync(x => 
+            x.CongregacaoId == lancamento.CongregacaoId && 
+            x.Status == "Fechado" && 
+            x.DataEvento.Month == lancamento.DataEvento.Month && 
+            x.DataEvento.Year == lancamento.DataEvento.Year);
+
+        if (mesEstaFechado)
+        {
+            mensagemErro = "Este mês já foi fechado pelo administrador.";
+            return;
+        }
 
         try
         {
-            if (lancamento.Tipo == "Saida" && lancamento.FormaPagamento == "A Prazo (Parcelado)")
+            lancamento.UsuarioEmail = emailLogado;
+
+            if (lancamento.Categoria == "Repasse Matriz")
             {
-                for (int i = 0; i < quantidadeParcelas; i++)
-                {
-                    var p = new Lancamento {
-                        CongregacaoId = lancamento.CongregacaoId,
-                        DataEvento = lancamento.DataEvento.AddMonths(i),
-                        Tipo = lancamento.Tipo,
-                        Categoria = lancamento.Categoria,
-                        FormaPagamento = "A Prazo",
-                        Valor = lancamento.Valor,
-                        Descricao = i == 0 ? lancamento.Descricao : $"{lancamento.Descricao} (Mês {i+1}/{quantidadeParcelas})",
-                        Status = i == 0 ? "Aberto" : "Agendado"
-                    };
-                    Db.Lancamentos.Add(p);
-                }
+                string codVinculo = "REP-" + Guid.NewGuid().ToString().Substring(0, 8).ToUpper();
+                
+                
+                lancamento.Status = "Aguardando Fechamento";
+                lancamento.RepasseStatus = "Pendente";
+                lancamento.CodTransferencia = codVinculo;
+                
+                Db.Lancamentos.Add(lancamento);
+
+                // Entrada na Matriz
+                Db.Lancamentos.Add(new Lancamento {
+                    CongregacaoId = 1, // Ajuste para ID da Sede
+                    DataEvento = lancamento.DataEvento,
+                    Tipo = "Entrada",
+                    Categoria = "Repasse Recebido",
+                    Valor = lancamento.Valor,
+                    UsuarioEmail = emailLogado,
+                    CodTransferencia = codVinculo,
+                    RepasseStatus = "Pendente",
+                    Status = "Aguardando Fechamento", 
+                    Descricao = $"Repasse de {nomeMinhaCongregacao}"
+                });
             }
             else
             {
@@ -223,15 +292,22 @@
             }
 
             await Db.SaveChangesAsync();
-            mensagemSucesso = "Lançamento registrado com sucesso!";
+            mensagemSucesso = "Registrado com sucesso!";
             
-            DateTime dataAnterior = lancamento.DataEvento;
-            lancamento = new Lancamento { 
-                CongregacaoId = isAdmin ? 0 : minhaCongregacaoId, 
-                DataEvento = dataAnterior, 
-                Status = "Aberto" 
-            };
+            await AtualizarUltimosLancamentos();
+
+            var dataM = lancamento.DataEvento;
+            var congM = lancamento.CongregacaoId;
+            lancamento = new Lancamento { DataEvento = dataM, CongregacaoId = congM, Status = "Aberto" };
         }
-        catch (Exception ex) { mensagemErro = "Erro ao salvar: " + ex.Message; }
+        catch (Exception ex)
+        {
+            mensagemErro = "Erro: " + ex.Message;
+        }
+    }
+
+    private void VerificarPreenchimentoAutomatico()
+    {
+        if (lancamento.Categoria == "Repasse Matriz") lancamento.FormaPagamento = "Dinheiro";
     }
 }

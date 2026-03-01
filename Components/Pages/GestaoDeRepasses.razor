@@ -1,0 +1,168 @@
+@page "/admin/gestao-repasses"
+@attribute [Authorize(Roles = "Admin")]
+@using SistemaIgreja.Data
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext Db
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Gestão de Repasses</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex align-items-center mb-4">
+        <div class="bg-warning text-dark rounded-3 p-2 me-3 shadow-sm">
+            <i class="bi bi-arrow-left-right fs-4"></i>
+        </div>
+        <div>
+            <h2 class="mb-0 fw-bold">Gestão de Repasses</h2>
+            <p class="text-muted mb-0">Confirme a entrada dos valores enviados pelas congregações</p>
+        </div>
+    </div>
+
+    @if (repassesPendentes == null || !repassesPendentes.Any())
+    {
+        <div class="alert alert-light border text-center py-5 rounded-4 animate__animated animate__fadeIn">
+            <i class="bi bi-check2-circle fs-1 text-success"></i>
+            <p class="mt-3 mb-0">Não há repasses pendentes de confirmação no momento.</p>
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var rep in repassesPendentes)
+            {
+                <div class="col-md-6 animate__animated animate__fadeIn">
+                    <div class="card border-0 shadow-sm rounded-4 mb-3">
+                        <div class="card-body p-4">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <span class="badge bg-warning-subtle text-warning border border-warning mb-2">AGUARDANDO CONFERÊNCIA</span>
+                                    <h5 class="fw-bold mb-0">R$ @rep.Valor.ToString("N2")</h5>
+                                    <small class="text-muted">Ref: @rep.CodTransferencia</small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="small fw-bold">@rep.DataEvento.ToShortDateString()</div>
+                                    <div class="small text-muted">@rep.FormaPagamento</div>
+                                </div>
+                            </div>
+                            
+                            <p class="small text-dark bg-light p-2 rounded">@rep.Descricao</p>
+
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                                <button class="btn btn-outline-danger btn-sm rounded-pill px-3" @onclick="() => Recusar(rep)">
+                                    Recusar
+                                </button>
+                                <button class="btn btn-success btn-sm rounded-pill px-4 fw-bold" @onclick="() => Confirmar(rep)">
+                                    Confirmar Recebimento
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<Lancamento> repassesPendentes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarPendentes();
+    }
+
+    private async Task CarregarPendentes()
+    {
+        var raw = await Db.Lancamentos
+            .Where(x => (x.Categoria == "Repasse Matriz" || x.Categoria == "Repasse Recebido")
+                        && (x.RepasseStatus == null || x.RepasseStatus == "Pendente"))
+            .OrderBy(x => x.DataEvento)
+            .ToListAsync();
+
+        repassesPendentes = raw
+            .GroupBy(x => x.CodTransferencia ?? x.Id.ToString())
+            .Select(g => g.FirstOrDefault(x => x.Tipo == "Entrada") ?? g.First())
+            .ToList();
+    }
+
+    private async Task Confirmar(Lancamento item)
+    {
+        // Pega as duas pontas do repasse usando o código de transferência
+        if (!string.IsNullOrEmpty(item.CodTransferencia))
+        {
+            var vinculados = await Db.Lancamentos
+                .Where(x => x.CodTransferencia == item.CodTransferencia)
+                .ToListAsync();
+
+            foreach (var vinculado in vinculados)
+            {
+                vinculado.RepasseStatus = "Aceito";
+                if (vinculado.Tipo == "Entrada") 
+                {
+                    vinculado.Status = "Aberto"; 
+                }
+            }
+            Db.Lancamentos.UpdateRange(vinculados);
+        }
+        else
+        {
+            // Fallback de segurança para registros antigos sem código
+            item.RepasseStatus = "Aceito";
+            item.Status = "Aberto";
+            Db.Lancamentos.Update(item);
+        }
+
+        await Db.SaveChangesAsync();
+        await CarregarPendentes();
+
+        // Força a tela a sumir com o card antes de congelar com o alert
+        StateHasChanged();
+        await Task.Delay(100); 
+
+        await JS.InvokeVoidAsync("alert", "Recebimento confirmado com sucesso!");
+    }
+
+    private async Task Recusar(Lancamento item)
+    {
+        bool confirm = await JS.InvokeAsync<bool>("confirm", "Deseja recusar este repasse? O registro de saída na congregação será reaberto para correção.");
+    
+        if (confirm)
+        {
+            if (!string.IsNullOrEmpty(item.CodTransferencia))
+            {
+                var vinculados = await Db.Lancamentos
+                    .Where(x => x.CodTransferencia == item.CodTransferencia)
+                    .ToListAsync();
+
+                foreach (var vinculado in vinculados)
+                {
+                    vinculado.RepasseStatus = "Recusado";
+                    vinculado.Descricao += " [RECUSADO PELA MATRIZ]";
+                    
+                    // Reabre a saída da congregação
+                    if (vinculado.Tipo == "Saida")
+                    {
+                        vinculado.Status = "Lance novamente"; 
+                    }
+                }
+                Db.Lancamentos.UpdateRange(vinculados);
+            }
+            else
+            {
+                 item.RepasseStatus = "Recusado";
+                 item.Descricao += " [RECUSADO PELA MATRIZ]";
+                 Db.Lancamentos.Update(item);
+            }
+
+            await Db.SaveChangesAsync();
+            await CarregarPendentes();
+
+            // Aplica a mesma lógica de fluidez visual aqui
+            StateHasChanged();
+            await Task.Delay(100);
+
+            await JS.InvokeVoidAsync("alert", "Repasse recusado e devolvido para a unidade de origem.");
+        }
+    }
+}

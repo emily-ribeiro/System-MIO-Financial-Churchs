@@ -8,9 +8,9 @@
 
 <PageTitle>Auditoria Mensal</PageTitle>
 
-<div class="container mt-4 pb-5" style="max-width: 1000px;">
+<div class="container mt-4 pb-5" style="max-width: 1200px;">
     <div class="d-flex align-items-center mb-4">
-        <div class="bg-primary text-white rounded-3 p-2 me-3">
+        <div class="bg-primary text-white rounded-3 p-2 me-3 shadow-sm">
             <i class="bi bi-shield-check fs-4"></i>
         </div>
         <h2 class="mb-0 fw-light">Auditoria <span class="fw-bold">Mensal</span></h2>
@@ -58,24 +58,39 @@
     }
     else if (movimentosAgrupados != null && movimentosAgrupados.Any())
     {
-        @* --- RESUMO GERAL --- *@
-        <div class="row g-3 mb-4">
-            <div class="col-md-4">
-                <div class="p-3 bg-white rounded-4 shadow-sm border-start border-success border-4">
-                    <div class="small text-muted mb-1">Entradas</div>
+        @* --- RESUMO GERAL (AGORA COM 5 COLUNAS) --- *@
+        <div class="row row-cols-1 row-cols-md-5 g-3 mb-4 animate__animated animate__fadeIn">
+            <div class="col">
+                <div class="p-3 bg-white rounded-4 shadow-sm border-start border-success border-4 h-100">
+                    <div class="small text-muted mb-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Total Entradas</div>
                     <div class="h4 mb-0 fw-bold text-success">R$ @totalEntradasGeral.ToString("N2")</div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="p-3 bg-white rounded-4 shadow-sm border-start border-danger border-4">
-                    <div class="small text-muted mb-1">Saídas</div>
+            <div class="col">
+                <div class="p-3 bg-white rounded-4 shadow-sm border-start border-danger border-4 h-100">
+                    <div class="small text-muted mb-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Saídas Operacionais</div>
                     <div class="h4 mb-0 fw-bold text-danger">R$ @totalSaidasGeral.ToString("N2")</div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="p-3 bg-white rounded-4 shadow-sm border-start border-primary border-4">
-                    <div class="small text-muted mb-1">Saldo Líquido</div>
-                    <div class="h4 mb-0 fw-bold text-primary">R$ @saldoGeral.ToString("N2")</div>
+            <div class="col">
+                <div class="p-3 bg-white rounded-4 shadow-sm border-start border-info border-4 h-100">
+                    <div class="small text-muted mb-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Resultado Operacional</div>
+                    <div class="h4 mb-0 fw-bold text-info">R$ @resultadoOperacional.ToString("N2")</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="p-3 bg-white rounded-4 shadow-sm border-start border-primary border-4 h-100">
+                    <div class="small text-muted mb-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Repasses Já Feitos</div>
+                    <div class="h4 mb-0 fw-bold text-primary">R$ @totalRepassesGeral.ToString("N2")</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="p-3 bg-dark text-white rounded-4 shadow-sm h-100">
+                    @* 🌟 CORREÇÃO QA: Se for a Sede, mostra Saldo em Caixa em vez de Saldo a Repassar *@
+                    <div class="small mb-1 text-uppercase fw-bold opacity-75 @(isMatrizSelecionada ? "text-success" : "text-warning")" style="font-size: 0.7rem;">
+                        @(isMatrizSelecionada ? "Saldo em Caixa (Sede)" : "Saldo a Repassar")
+                    </div>
+                    <div class="h4 mb-0 fw-bold">R$ @(isMatrizSelecionada ? resultadoOperacional.ToString("N2") : saldoGeral.ToString("N2"))</div>
                 </div>
             </div>
         </div>
@@ -87,16 +102,16 @@
             var diaRevisado = diasRevisados.Contains(dataChave);
 
             <div class="mb-3">
-                <div class="d-flex align-items-center p-3 bg-white rounded-4 shadow-sm @(diaRevisado ? "opacity-75" : "")">
+                <div class="d-flex align-items-center p-3 bg-white rounded-4 shadow-sm @(diaRevisado ? "bg-light opacity-75" : "")">
                     <div class="cursor-pointer d-flex align-items-center flex-grow-1" @onclick="() => AlternarDia(dataChave)">
-                        <i class="bi @(estaAberto ? "bi-dash-circle" : "bi-plus-circle") fs-5 me-3 text-muted"></i>
-                        <span class="fw-bold @(diaRevisado ? "text-success text-decoration-line-through" : "")">
+                        <i class="bi @(estaAberto ? "bi-dash-circle-fill" : "bi-plus-circle-fill") fs-5 me-3 @(estaAberto ? "text-primary" : "text-muted")"></i>
+                        <span class="fw-bold @(diaRevisado ? "text-success text-decoration-line-through" : "text-dark")">
                             @grupo.Key.ToLongDateString()
                         </span>
                     </div>
                     
                     <div class="d-flex align-items-center">
-                        <span class="small text-muted me-2 d-none d-md-inline">@(diaRevisado ? "Concluído" : "Pendente")</span>
+                        <span class="small text-muted me-2 d-none d-md-inline">@(diaRevisado ? "Revisado" : "Pendente")</span>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" role="switch" 
                                    checked="@diaRevisado" @onchange="(e) => MarcarRevisado(dataChave, (bool)(e.Value ?? false))">
@@ -106,103 +121,103 @@
 
                 @if (estaAberto)
                 {
-                    <div class="bg-white mx-3 p-3 rounded-bottom-4 shadow-sm animate__animated animate__fadeIn">
-                        <table class="table table-borderless align-middle mb-0">
-                            <thead class="text-muted small text-uppercase border-bottom">
-                                <tr>
-                                    <th>Tipo / Categoria</th>
-                                    <th>Descrição</th>
-                                    <th class="text-end">Valor</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var item in grupo)
-                                {
-                                    <tr class="border-bottom-faint">
-                                        <td>
-                                            <div class="badge @(item.Tipo == "Entrada" ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger") border-0 mb-1">
-                                                @item.Tipo
-                                            </div>
-                                            <div class="fw-bold">@item.Categoria</div>
-                                        </td>
-                                        <td class="small text-muted">@item.Descricao</td>
-                                        <td class="text-end fw-bold">R$ @item.Valor.ToString("N2")</td>
-                                        <td class="text-end">
-                                            @if (item.Status == "Solicitado Ajuste")
-                                            {
-                                                <button class="btn btn-sm btn-soft-warning rounded-pill px-3 fw-bold" @onclick="() => AbrirModalAcaoAjuste(item)">
-                                                    Ajustar
-                                                </button>
-                                            }
-                                        </td>
+                    <div class="bg-white mx-3 p-3 rounded-bottom-4 shadow-sm border-top animate__animated animate__fadeIn">
+                        <div class="table-responsive">
+                            <table class="table table-borderless align-middle mb-0">
+                                <thead class="text-muted small text-uppercase border-bottom">
+                                    <tr>
+                                        <th style="width: 25%">Categoria</th>
+                                        <th style="width: 30%">Descrição</th>
+                                        <th style="width: 15%">Forma</th>
+                                        <th class="text-end" style="width: 15%">Valor</th>
+                                        <th class="text-end" style="width: 15%">Ações</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in grupo)
+                                    {
+                                        <tr class="border-bottom-faint">
+                                            <td>
+                                                <div class="badge @(item.Tipo == "Entrada" ? "bg-success-subtle text-success" : (item.Categoria == "Repasse Matriz" ? "bg-primary-subtle text-primary" : "bg-danger-subtle text-danger")) border-0 mb-1">
+                                                    @item.Tipo
+                                                </div>
+                                                <div class="fw-bold">@item.Categoria</div>
+                                            </td>
+                                            <td class="small text-muted">@item.Descricao</td>
+                                            <td><span class="small text-muted text-uppercase">@item.FormaPagamento</span></td>
+                                            <td class="text-end fw-bold">R$ @item.Valor.ToString("N2")</td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm @(item.Status == "Solicitado Ajuste" ? "btn-warning" : "btn-outline-secondary border-0") rounded-circle me-1" 
+                                                        title="Ajustar" @onclick="() => AbrirModalAcaoAjuste(item)">
+                                                    <i class="bi @(item.Status == "Solicitado Ajuste" ? "bi-exclamation-triangle" : "bi-pencil-square")"></i>
+                                                </button>
+
+                                                <button class="btn btn-sm btn-outline-danger border-0 rounded-circle" 
+                                                        title="Excluir" @onclick="() => ConfirmarExclusao(item)">
+                                                    <i class="bi bi-trash3"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 }
             </div>
         }
 
         <div class="mt-5 text-center">
-            @if (!PodeFecharTudo)
+            @* 🌟 Só mostra o alerta de repasse se NÃO for a Sede e tiver saldo *@
+            @if (saldoGeral > 0 && !isMatrizSelecionada)
             {
-                <p class="text-muted small animate__animated animate__fadeIn">
-                    <i class="bi bi-info-circle me-1"></i> 
-                    Para habilitar o fechamento, resolva todos os ajustes e <strong>marque cada dia como revisado</strong>.
-                </p>
+                <div class="alert alert-warning border-0 small mb-3 d-inline-block rounded-pill px-4 fw-bold">
+                    <i class="bi bi-info-circle me-2"></i> 
+                    Atenção: Um repasse automático de R$ @saldoGeral.ToString("N2") será gerado para a Sede ao finalizar.
+                </div>
             }
+            <br />
             <button class="btn btn-primary btn-lg px-5 rounded-pill shadow-lg fw-bold" 
                     disabled="@(!PodeFecharTudo)" @onclick="FinalizarFechamento">
-                <i class="bi bi-check2-all me-2"></i>Finalizar Auditoria
+                <i class="bi bi-check2-all me-2"></i>Finalizar Auditoria 
             </button>
         </div>
     }
 </div>
 
-@* --- MODAL DE AJUSTE ATUALIZADO (COM TIPO) --- *@
+@* --- MODAL DE AJUSTE --- *@
 @if (exibirModalAjuste)
 {
     <div class="modal fade show d-block" style="background: rgba(0,0,0,0.2); backdrop-filter: blur(4px);">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 rounded-4 shadow-lg">
                 <div class="modal-header border-0 pb-0">
-                    <h5 class="fw-bold">Ajuste de Registro</h5>
+                    <h5 class="fw-bold">Ajuste do Administrador</h5>
                     <button type="button" class="btn-close" @onclick="() => exibirModalAjuste = false"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="p-3 bg-light rounded-3 mb-3 border-start border-warning border-4">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span class="badge @(itemEmAjuste?.Tipo == "Entrada" ? "bg-success" : "bg-danger")">@itemEmAjuste?.Tipo</span>
-                            <span class="small text-muted">Valor Original: R$ @itemEmAjuste?.Valor.ToString("N2")</span>
-                        </div>
-                        <div class="fw-bold text-dark">@itemEmAjuste?.Categoria</div>
-                        <div class="small mt-2 italic text-muted">Justificativa: "@itemEmAjuste?.Descricao"</div>
-                    </div>
-                    
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">Nova Categoria</label>
+                        <label class="form-label small fw-bold">Categoria</label>
                         <select class="form-select bg-light border-0 rounded-3" @bind="novaCategoriaAjuste">
                             @if (itemEmAjuste?.Tipo == "Entrada") {
                                 <option value="Dízimo">Dízimo</option><option value="Oferta">Oferta</option>
                                 <option value="Cantina">Cantina</option><option value="Outras Entradas">Outras Entradas</option>
                             } else {
+                                <option value="Repasse Matriz">📤 Repasse Sede</option>
                                 <option value="Conta de Luz">Conta de Luz</option><option value="Conta de Água">Conta de Água</option>
                                 <option value="Aluguel">Aluguel</option><option value="Manutenção">Manutenção</option>
                                 <option value="Outras Saídas">Outras Saídas</option>
                             }
                         </select>
                     </div>
-
                     <div class="mb-0">
-                        <label class="form-label small fw-bold">Novo Valor (R$)</label>
+                        <label class="form-label small fw-bold">Valor Correto (R$)</label>
                         <input type="number" step="0.01" class="form-control bg-light border-0 rounded-3" @bind="novoValorAjuste" />
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">
-                    <button class="btn btn-link text-muted text-decoration-none small" @onclick="RecusarAjuste">Manter Original</button>
-                    <button class="btn btn-dark px-4 rounded-pill fw-bold" @onclick="AprovarAjuste">Confirmar Ajuste</button>
+                    <button class="btn btn-link text-muted text-decoration-none small" @onclick="RecusarAjuste">Cancelar</button>
+                    <button class="btn btn-dark px-4 rounded-pill fw-bold" @onclick="AprovarAjuste">Salvar Alteração</button>
                 </div>
             </div>
         </div>
@@ -212,12 +227,10 @@
 <style>
     .rounded-4 { border-radius: 1rem !important; }
     .border-bottom-faint { border-bottom: 1px solid #f8f9fa; }
-    .btn-soft-warning { background-color: #fff3cd; color: #856404; border: none; }
-    .btn-soft-warning:hover { background-color: #ffeeba; }
     .cursor-pointer { cursor: pointer; }
     .bg-success-subtle { background-color: #d1e7dd; }
     .bg-danger-subtle { background-color: #f8d7da; }
-    .italic { font-style: italic; }
+    .bg-primary-subtle { background-color: #cfe2ff; }
 </style>
 
 @code {
@@ -229,9 +242,14 @@
     private int mesSelecionado = DateTime.Now.Month;
     private int anoSelecionado = DateTime.Now.Year;
     private bool carregando = false;
+    
+    // Flag inteligente para saber se é a Sede
+    private bool isMatrizSelecionada = false;
 
     private decimal totalEntradasGeral = 0;
     private decimal totalSaidasGeral = 0;
+    private decimal totalRepassesGeral = 0;
+    private decimal resultadoOperacional = 0;
     private decimal saldoGeral = 0;
 
     private bool exibirModalAjuste = false;
@@ -254,24 +272,43 @@
         carregando = true;
         diasRevisados.Clear();
         
+        // Verifica se a unidade selecionada é a Matriz
+        var congreSelecionada = listaCongregacoes.FirstOrDefault(c => c.Id == idUnidadeSelecionada);
+        isMatrizSelecionada = congreSelecionada != null && congreSelecionada.EhMatriz;
+        
+        DateTime primeiroDia = new DateTime(anoSelecionado, mesSelecionado, 1);
+        DateTime ultimoDia = primeiroDia.AddMonths(1).AddDays(-1);
+
         var lista = await Db.Lancamentos
             .Where(x => x.CongregacaoId == idUnidadeSelecionada && 
                         x.Status != "Fechado" && 
-                        x.DataEvento.Month == mesSelecionado &&
-                        x.DataEvento.Year == anoSelecionado)
+                        x.DataEvento.Date >= primeiroDia.Date &&
+                        x.DataEvento.Date <= ultimoDia.Date)
             .OrderBy(x => x.DataEvento).ToListAsync();
 
         totalEntradasGeral = lista.Where(x => x.Tipo == "Entrada").Sum(x => x.Valor);
-        totalSaidasGeral = lista.Where(x => x.Tipo == "Saida").Sum(x => x.Valor);
-        saldoGeral = totalEntradasGeral - totalSaidasGeral;
+        totalSaidasGeral = lista.Where(x => x.Tipo == "Saida" && x.Categoria != "Repasse Matriz").Sum(x => x.Valor);
+        totalRepassesGeral = lista.Where(x => x.Categoria == "Repasse Matriz").Sum(x => x.Valor);
+        
+        resultadoOperacional = totalEntradasGeral - totalSaidasGeral;
+
+        // Se for Matriz, não tem saldo a repassar. Se não, calcula normalmente.
+        saldoGeral = isMatrizSelecionada ? 0 : resultadoOperacional - totalRepassesGeral;
 
         movimentosAgrupados = lista.GroupBy(x => x.DataEvento.Date).ToList();
         carregando = false;
     }
 
-    private string ObterNomeMes(int mes) => System.Globalization.DateTimeFormatInfo.CurrentInfo.GetMonthName(mes);
-    private void AlternarDia(string data) { if (diasExpandidos.Contains(data)) diasExpandidos.Remove(data); else diasExpandidos.Add(data); }
-    private void MarcarRevisado(string data, bool revisado) { if (revisado) diasRevisados.Add(data); else diasRevisados.Remove(data); }
+    private async Task ConfirmarExclusao(Lancamento item)
+    {
+        bool confirmado = await JS.InvokeAsync<bool>("confirm", $"Deseja realmente EXCLUIR o lançamento de R$ {item.Valor:N2}?");
+        if (confirmado)
+        {
+            Db.Lancamentos.Remove(item);
+            await Db.SaveChangesAsync();
+            await CarregarMovimento();
+        }
+    }
 
     private void AbrirModalAcaoAjuste(Lancamento item)
     {
@@ -288,7 +325,7 @@
             itemEmAjuste.Valor = novoValorAjuste;
             itemEmAjuste.Categoria = novaCategoriaAjuste;
             itemEmAjuste.Status = "Aberto"; 
-            itemEmAjuste.Descricao += $" [AJUSTADO EM {DateTime.Now:dd/MM}]";
+            itemEmAjuste.Descricao += $" [AUDITORIA: {DateTime.Now:dd/MM}]";
             Db.Lancamentos.Update(itemEmAjuste);
             await Db.SaveChangesAsync();
             exibirModalAjuste = false;
@@ -296,20 +333,46 @@
         }
     }
 
-    private async Task RecusarAjuste()
-    {
-        if (itemEmAjuste != null)
-        {
-            itemEmAjuste.Status = "Aberto"; 
-            Db.Lancamentos.Update(itemEmAjuste);
-            await Db.SaveChangesAsync();
-            exibirModalAjuste = false;
-            await CarregarMovimento();
-        }
-    }
+    private async Task RecusarAjuste() { exibirModalAjuste = false; await Task.CompletedTask; }
+
+    private void AlternarDia(string data) { if (diasExpandidos.Contains(data)) diasExpandidos.Remove(data); else diasExpandidos.Add(data); }
+    private void MarcarRevisado(string data, bool revisado) { if (revisado) diasRevisados.Add(data); else diasRevisados.Remove(data); }
 
     private async Task FinalizarFechamento()
     {
+        // 🌟 Só cria repasse automático se tiver saldo E se NÃO for a Sede
+        if (saldoGeral > 0 && !isMatrizSelecionada)
+        {
+            string codVinculo = "REP-AUTO-" + Guid.NewGuid().ToString().Substring(0, 5).ToUpper();
+            int ultimoDiaMes = DateTime.DaysInMonth(anoSelecionado, mesSelecionado);
+            DateTime dataFechamento = new DateTime(anoSelecionado, mesSelecionado, ultimoDiaMes);
+
+            Db.Lancamentos.Add(new Lancamento {
+                CongregacaoId = idUnidadeSelecionada,
+                DataEvento = dataFechamento,
+                Tipo = "Saida",
+                Categoria = "Repasse Matriz",
+                Valor = saldoGeral,
+                FormaPagamento = "Dinheiro",
+                Descricao = "Repasse automático (Zerar Caixa no Fechamento do Mês)",
+                CodTransferencia = codVinculo,
+                Status = "Fechado"
+            });
+
+            Db.Lancamentos.Add(new Lancamento {
+                CongregacaoId = 1, // ID da Sede/Matriz
+                DataEvento = dataFechamento,
+                Tipo = "Entrada",
+                Categoria = "Repasse Recebido",
+                Valor = saldoGeral,
+                FormaPagamento = "Dinheiro",
+                Descricao = $"Repasse automático de Fechamento - Caixa Zerado",
+                CodTransferencia = codVinculo,
+                RepasseStatus = "Pendente",
+                Status = "Aberto"
+            });
+        }
+
         foreach (var grupo in movimentosAgrupados)
         {
             foreach (var item in grupo)
@@ -318,9 +381,21 @@
                 Db.Lancamentos.Update(item);
             }
         }
+
         await Db.SaveChangesAsync();
+        
+        string msgAlerta = (saldoGeral > 0 && !isMatrizSelecionada)
+            ? $"Auditoria Finalizada! O mês foi trancado e o saldo restante (R$ {saldoGeral:N2}) foi enviado para a Sede a ser confirmado na tela de Gestão de Repasses." 
+            : "Auditoria Finalizada! O mês foi trancado com sucesso.";
+            
+        await JS.InvokeVoidAsync("alert", msgAlerta);
+        
         movimentosAgrupados.Clear();
         diasRevisados.Clear();
-        await JS.InvokeVoidAsync("alert", "Auditoria Finalizada com Sucesso.");
+        totalEntradasGeral = 0;
+        totalSaidasGeral = 0;
+        totalRepassesGeral = 0;
+        resultadoOperacional = 0;
+        saldoGeral = 0;
     }
 }
